@@ -1,0 +1,43 @@
+﻿@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+  --surface-50: #f9f6f1;
+  --surface-900: #0d231f;
+}
+
+body {
+  @apply bg-sand-50 text-slate-900 antialiased;
+  background-image: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.9), rgba(249, 246, 241, 0)),
+    radial-gradient(circle at 80% 0%, rgba(210, 233, 226, 0.6), transparent),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(249, 246, 241, 0.95));
+  min-height: 100vh;
+}
+
+a {
+  @apply transition-colors duration-200;
+}
+
+a:hover {
+  @apply text-pine-500;
+}
+
+::selection {
+  @apply bg-pine-500 text-white;
+}
+
+@layer utilities {
+  .shadow-soft {
+    @apply shadow-[0_15px_40px_-20px_rgba(15,47,43,0.35)];
+  }
+
+  .text-balance {
+    text-wrap: balance;
+  }
+
+  .glass-panel {
+    @apply bg-white/80 backdrop-blur-xl border border-white/60 shadow-soft;
+  }
+}

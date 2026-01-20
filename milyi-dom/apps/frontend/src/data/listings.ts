@@ -1,0 +1,68 @@
+﻿import type { Listing } from '../types';
+
+export const featuredListings: Listing[] = [
+  {
+    id: '1',
+    slug: 'listing_radiant_loft',
+    title: 'Radiant Loft by Patriarch Ponds',
+    location: 'Moscow, Russia',
+    pricePerNight: 220,
+    rating: 4.9,
+    reviews: 126,
+    tags: ['city center', 'loft', 'self check-in'],
+    image:
+      'https://images.unsplash.com/photo-1505691938895-1758d7feb511?auto=format&fit=crop&w=900&q=80',
+    guests: 4,
+    bedrooms: 2,
+    baths: 1,
+    instantBook: true,
+  },
+  {
+    id: '2',
+    slug: 'listing_riverside_home',
+    title: 'Riverside Cottage on the Neva',
+    location: 'Saint Petersburg, Russia',
+    pricePerNight: 310,
+    rating: 5,
+    reviews: 82,
+    tags: ['waterfront view', 'fireplace', 'sauna'],
+    image:
+      'https://images.unsplash.com/photo-1523217582562-09d0def993a6?auto=format&fit=crop&w=900&q=80',
+    guests: 5,
+    bedrooms: 3,
+    baths: 2,
+    instantBook: false,
+  },
+  {
+    id: '3',
+    slug: 'listing_black_sea_view',
+    title: 'Black Sea Panorama Villa',
+    location: 'Sochi, Russia',
+    pricePerNight: 460,
+    rating: 4.95,
+    reviews: 64,
+    tags: ['infinity pool', 'terrace', 'sunset view'],
+    image:
+      'https://images.unsplash.com/photo-1512918728675-ed5a9ecdebfd?auto=format&fit=crop&w=900&q=80',
+    guests: 6,
+    bedrooms: 3,
+    baths: 3,
+    instantBook: true,
+  },
+  {
+    id: '4',
+    slug: 'listing_lake_cabin',
+    title: 'Lakeside Timber Cabin',
+    location: 'Karelia, Russia',
+    pricePerNight: 180,
+    rating: 4.87,
+    reviews: 203,
+    tags: ['sauna', 'fireplace', 'fishing'],
+    image:
+      'https://images.unsplash.com/photo-1489515217757-5fd1be406fef?auto=format&fit=crop&w=900&q=80',
+    guests: 3,
+    bedrooms: 1,
+    baths: 1,
+    instantBook: false,
+  },
+];

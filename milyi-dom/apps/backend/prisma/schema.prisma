@@ -1,0 +1,272 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  extensions = [postgis]
+}
+
+enum Role {
+  GUEST
+  HOST
+  ADMIN
+}
+
+enum ListingStatus {
+  DRAFT
+  PUBLISHED
+  UNLISTED
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  AUTHORIZED
+  PAID
+  REFUNDED
+  FAILED
+}
+
+enum NotificationType {
+  BOOKING_CONFIRMATION
+  BOOKING_REMINDER
+  MESSAGE
+  NEW_REVIEW
+  SYSTEM
+}
+
+model User {
+  id               String         @id @default(cuid())
+  email            String         @unique
+  phone            String?        @unique
+  password         String
+  role             Role           @default(GUEST)
+  isVerified       Boolean        @default(false)
+  isSuperhost      Boolean        @default(false)
+  lastActiveAt     DateTime?
+  profile          Profile?
+  listings         Listing[]      @relation("ListingHost")
+  bookings         Booking[]      @relation("BookingGuest")
+  favorites        Favorite[]
+  reviews          Review[]       @relation("ReviewAuthor")
+  sentMessages     Message[]      @relation("MessageSender")
+  receivedMessages Message[]      @relation("MessageRecipient")
+  hostedConversations      Conversation[] @relation("ConversationHost")
+  guestConversations       Conversation[] @relation("ConversationGuest")
+  notifications    Notification[]
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+}
+
+model Profile {
+  id                  String   @id @default(cuid())
+  firstName           String
+  lastName            String
+  avatarUrl           String?
+  bio                 String?
+  languages           String[] @default([])
+  verified            Boolean  @default(false)
+  responseRate        Float?   @default(1)
+  responseTimeMinutes Int?     @default(60)
+  userId              String   @unique
+  user                User     @relation(fields: [userId], references: [id])
+}
+
+model Listing {
+  id            String           @id @default(cuid())
+  title         String
+  slug          String           @unique
+  description   String
+  summary       String?
+  propertyType  String
+  hostId        String
+  host          User             @relation("ListingHost", fields: [hostId], references: [id])
+  guests        Int
+  bedrooms      Int
+  beds          Int
+  bathrooms     Decimal          @db.Decimal(3, 1)
+  basePrice     Decimal          @db.Decimal(10, 2)
+  cleaningFee   Decimal?         @db.Decimal(10, 2)
+  serviceFee    Decimal?         @db.Decimal(10, 2)
+  currency      String           @default("USD")
+  status        ListingStatus    @default(PUBLISHED)
+  featured      Boolean          @default(false)
+  instantBook   Boolean          @default(false)
+  checkInFrom   Int?
+  checkOutUntil Int?
+  minNights     Int?             @default(1)
+  maxNights     Int?
+  rating        Float?           @default(0)
+  reviewCount   Int              @default(0)
+  amenities     ListingAmenity[]
+  images        PropertyImage[]
+  bookings      Booking[]
+  favorites     Favorite[]
+  reviews       Review[]         @relation("ListingReviews")
+  conversations Conversation[]
+  addressLine1  String
+  addressLine2  String?
+  city          String
+  state         String?
+  country       String
+  postalCode    String?
+  latitude      Decimal          @db.Decimal(9, 6)
+  longitude     Decimal          @db.Decimal(9, 6)
+  location      Unsupported("geography(Point,4326)")?
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+
+  @@index([status, featured])
+  @@index([city])
+  @@index([country])
+}
+
+model Amenity {
+  id        Int              @id @default(autoincrement())
+  name      String           @unique
+  category  String           @default("general")
+  icon      String?
+  createdAt DateTime         @default(now())
+  listings  ListingAmenity[]
+}
+
+model ListingAmenity {
+  listingId String
+  amenityId Int
+  listing   Listing @relation(fields: [listingId], references: [id])
+  amenity   Amenity @relation(fields: [amenityId], references: [id])
+
+  @@id([listingId, amenityId])
+}
+
+model PropertyImage {
+  id          String   @id @default(cuid())
+  listingId   String
+  url         String
+  description String?
+  position    Int      @default(0)
+  isPrimary   Boolean  @default(false)
+  listing     Listing  @relation(fields: [listingId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Booking {
+  id         String        @id @default(cuid())
+  listingId  String
+  guestId    String
+  checkIn    DateTime
+  checkOut   DateTime
+  status     BookingStatus @default(PENDING)
+  adults     Int
+  children   Int           @default(0)
+  infants    Int           @default(0)
+  pets       Int           @default(0)
+  totalPrice Decimal       @db.Decimal(10, 2)
+  currency   String        @default("USD")
+  payment    Payment?
+  listing    Listing       @relation(fields: [listingId], references: [id])
+  guest      User          @relation("BookingGuest", fields: [guestId], references: [id])
+  review     Review?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@unique([listingId, checkIn, checkOut], name: "listing_reservation_unique")
+}
+
+model Favorite {
+  id        String   @id @default(cuid())
+  userId    String
+  listingId String
+  user      User     @relation(fields: [userId], references: [id])
+  listing   Listing  @relation(fields: [listingId], references: [id])
+  createdAt DateTime @default(now())
+
+  @@unique([userId, listingId])
+}
+
+model Review {
+  id            String   @id @default(cuid())
+  rating        Int
+  comment       String?
+  isPublic      Boolean  @default(true)
+  isFeatured    Boolean  @default(false)
+  listingId     String
+  bookingId     String   @unique
+  authorId      String
+  listing       Listing  @relation("ListingReviews", fields: [listingId], references: [id])
+  booking       Booking  @relation(fields: [bookingId], references: [id])
+  author        User     @relation("ReviewAuthor", fields: [authorId], references: [id])
+  cleanliness   Int
+  communication Int
+  checkIn       Int
+  accuracy      Int
+  location      Int
+  value         Int
+  createdAt     DateTime @default(now())
+}
+
+model Payment {
+  id         String        @id @default(cuid())
+  bookingId  String        @unique
+  providerId String
+  status     PaymentStatus @default(PENDING)
+  amount     Decimal       @db.Decimal(10, 2)
+  currency   String        @default("USD")
+  method     String
+  receiptUrl String?
+  capturedAt DateTime?
+  booking    Booking       @relation(fields: [bookingId], references: [id])
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+}
+
+model Conversation {
+  id        String    @id @default(cuid())
+  listingId String?
+  hostId    String
+  guestId   String
+  messages  Message[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  listing   Listing?  @relation(fields: [listingId], references: [id])
+  host      User      @relation("ConversationHost", fields: [hostId], references: [id])
+  guest     User      @relation("ConversationGuest", fields: [guestId], references: [id])
+
+  @@unique([hostId, guestId, listingId])
+}
+
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  senderId       String
+  recipientId    String
+  body           String
+  readAt         DateTime?
+  sentAt         DateTime     @default(now())
+  conversation   Conversation @relation(fields: [conversationId], references: [id])
+  sender         User         @relation("MessageSender", fields: [senderId], references: [id])
+  recipient      User         @relation("MessageRecipient", fields: [recipientId], references: [id])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  body      String
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime         @default(now())
+  user      User             @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+}

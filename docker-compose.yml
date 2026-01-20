@@ -1,0 +1,51 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgis/postgis:16-3.4
+    container_name: milyi_dom_db
+    environment:
+      POSTGRES_DB: milyi_dom
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  images:
+    image: nginx:alpine
+    container_name: milyi_dom_images
+    ports:
+      - '8080:80'
+    volumes:
+      - ./milyi-dom/images:/usr/share/nginx/html:ro
+      - ./milyi-dom/nginx-images.conf:/etc/nginx/conf.d/default.conf:ro
+    restart: unless-stopped
+
+  backend:
+    build:
+      context: ./milyi-dom/apps/backend
+      dockerfile: Dockerfile
+    container_name: milyi_dom_backend
+    env_file:
+      - ./milyi-dom/apps/backend/.env
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/milyi_dom?schema=public
+      IMAGES_BASE_URL: http://images
+    ports:
+      - '4001:4001'
+    depends_on:
+      db:
+        condition: service_started
+      images:
+        condition: service_started
+    restart: unless-stopped
+    volumes:
+      - ./milyi-dom/apps/backend/prisma/seed.ts:/app/prisma/seed.ts:ro
+      - ./milyi-dom/apps/backend/package.json:/app/package.json:ro
+
+volumes:
+  pgdata:
+

@@ -1,0 +1,4 @@
+﻿node_modules
+npm-debug.log
+src/**/*.spec.ts
+src/**/*.e2e-spec.ts
