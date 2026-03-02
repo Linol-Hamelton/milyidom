@@ -1,0 +1,2 @@
+[    1607ms] Uncaught TypeError: Cannot read properties of undefined (reading 'CrashAnalytics')
+    at <anonymous> (https://analytics.sutochno.ru/plugins/CrashAnalytics/tracker.min.js:25:101)

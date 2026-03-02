@@ -70,11 +70,11 @@ export default () => {
     },
     storage: {
       bucket: process.env.S3_BUCKET || '',
-      region: process.env.S3_REGION || 'auto',
-      endpoint: process.env.S3_ENDPOINT || '',       // Cloudflare R2 / MinIO endpoint
+      region: process.env.S3_REGION || 'ru-central1',
+      endpoint: process.env.S3_ENDPOINT || '',       // Yandex: https://storage.yandexcloud.net
       accessKeyId: process.env.S3_ACCESS_KEY_ID || '',
       secretAccessKey: process.env.S3_SECRET_ACCESS_KEY || '',
-      cdnBase: process.env.CDN_BASE_URL || '',       // optional CDN prefix
+      cdnBase: process.env.CDN_BASE_URL || '',       // Yandex: https://<bucket>.storage.yandexcloud.net
     },
     images: {
       baseUrl: process.env.IMAGES_BASE_URL || 'http://localhost:4001/images',

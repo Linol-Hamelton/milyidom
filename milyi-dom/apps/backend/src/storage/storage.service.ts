@@ -18,6 +18,7 @@ export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private readonly s3: S3Client | null = null;
   private readonly bucket: string | null;
+  private readonly endpoint: string | null;
   private readonly cdnBase: string | null;
   private readonly localRoot: string;
   private readonly localBaseUrl: string;
@@ -25,11 +26,12 @@ export class StorageService {
   constructor(private readonly config: ConfigService) {
     const bucket = config.get<string>('storage.bucket');
     const region = config.get<string>('storage.region', 'auto');
-    const endpoint = config.get<string>('storage.endpoint'); // R2 / MinIO
+    const endpoint = config.get<string>('storage.endpoint'); // Yandex / R2 / MinIO
     const accessKeyId = config.get<string>('storage.accessKeyId');
     const secretAccessKey = config.get<string>('storage.secretAccessKey');
 
     this.bucket = bucket || null;
+    this.endpoint = endpoint || null;
     this.cdnBase = config.get<string>('storage.cdnBase') ?? null;
     this.localRoot =
       config.get<string>('images.root') ?? join(process.cwd(), '..', '..', 'images');
@@ -40,10 +42,13 @@ export class StorageService {
     if (bucket && accessKeyId && secretAccessKey) {
       this.s3 = new S3Client({
         region,
-        ...(endpoint ? { endpoint, forcePathStyle: true } : {}),
+        // Yandex Object Storage and other S3-compatible providers require
+        // forcePathStyle: false (virtual-hosted style) which is the default.
+        // We only enable forcePathStyle for pure path-style endpoints (MinIO).
+        ...(endpoint ? { endpoint } : {}),
         credentials: { accessKeyId, secretAccessKey },
       });
-      this.logger.log(`S3 storage configured — bucket: ${bucket}`);
+      this.logger.log(`S3 storage configured — bucket: ${bucket}, endpoint: ${endpoint || 'AWS'}`);
     } else {
       this.logger.warn('S3 credentials not set — using local disk storage (dev mode)');
     }
@@ -84,9 +89,20 @@ export class StorageService {
     });
 
     await upload.done();
-    const url = this.cdnBase
-      ? `${this.cdnBase.replace(/\/$/, '')}/${key}`
-      : `https://${this.bucket}.s3.amazonaws.com/${key}`;
+
+    // Resolve public URL:
+    //  1. Explicit CDN base (highest priority)   → CDN_BASE_URL/key
+    //  2. Custom S3 endpoint (Yandex, R2, MinIO) → {protocol}//{bucket}.{host}/key (virtual-hosted)
+    //  3. AWS S3 fallback                        → https://{bucket}.s3.amazonaws.com/key
+    let url: string;
+    if (this.cdnBase) {
+      url = `${this.cdnBase.replace(/\/$/, '')}/${key}`;
+    } else if (this.endpoint) {
+      const ep = new URL(this.endpoint);
+      url = `${ep.protocol}//${this.bucket}.${ep.host}/${key}`;
+    } else {
+      url = `https://${this.bucket}.s3.amazonaws.com/${key}`;
+    }
 
     return { url, key };
   }
