@@ -70,6 +70,7 @@ export function ListingCard({ listing, href }: ListingCardProps) {
             loading="lazy"
             placeholder="blur"
             blurDataURL={listingBlurDataURL}
+            unoptimized={imageSrc.startsWith('http')}
           />
 
           <div className="absolute right-3 top-3 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">

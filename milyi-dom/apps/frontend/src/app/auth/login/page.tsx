@@ -66,17 +66,8 @@ export default function LoginPage() {
         <div>
           <h2 className="mt-6 text-center text-3xl font-semibold text-gray-900">Вход в аккаунт</h2>
           <p className="mt-2 text-center text-sm text-gray-600">
-            Если API недоступен, используйте одну из демо-учёток ниже.
+            Войдите, чтобы бронировать жильё и управлять объявлениями.
           </p>
-        </div>
-
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-          <h3 className="text-sm font-medium text-blue-800 mb-2">Демо-данные для входа</h3>
-          <div className="text-xs text-blue-700 space-y-1">
-            <div><strong>Хост:</strong> host@example.com / password123</div>
-            <div><strong>Гость:</strong> guest@example.com / password123</div>
-            <div><strong>Админ:</strong> admin@example.com / password123</div>
-          </div>
         </div>
 
         {!showForgotPassword ? (
