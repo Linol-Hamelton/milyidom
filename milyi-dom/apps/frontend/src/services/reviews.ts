@@ -47,7 +47,15 @@ export async function fetchListingReviews(listingId: string, page = 1) {
 
   try {
     const { data } = await api.get<PaginatedResponse<Review>>(`/reviews/listing/${listingId}?page=${page}`);
-    return data;
+    // Backend may return { reviews, total, page, limit } instead of { items, meta }
+    const raw = data as unknown as Record<string, unknown>;
+    const items = (data.items ?? raw['reviews'] ?? []) as Review[];
+    const meta = data.meta ?? {
+      page: (raw['page'] as number) ?? 1,
+      limit: (raw['limit'] as number) ?? 10,
+      total: (raw['total'] as number) ?? 0,
+    };
+    return { items, meta };
   } catch (error) {
     console.warn(`Could not fetch reviews for listing ${listingId}:`, error);
     return {
