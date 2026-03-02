@@ -1,4 +1,5 @@
 import Image from 'next/image';
+import Link from 'next/link';
 import { destinations } from '../../data/destinations';
 
 export default function Destinations() {
@@ -16,8 +17,9 @@ export default function Destinations() {
 
         <div className="mt-12 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {destinations.map((destination) => (
-            <div
+            <Link
               key={destination.id}
+              href={`/listings?city=${encodeURIComponent(destination.name)}`}
               className="group cursor-pointer"
             >
               <div className="relative aspect-square overflow-hidden rounded-xl">
@@ -27,14 +29,15 @@ export default function Destinations() {
                   fill
                   sizes="(max-width: 768px) 100vw, 250px"
                   className="object-cover transition duration-300 group-hover:scale-105"
+                  unoptimized
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
                 <div className="absolute bottom-4 left-4 text-white">
                   <h3 className="text-xl font-semibold">{destination.name}</h3>
                   <p className="text-sm opacity-90">{destination.country}</p>
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </div>

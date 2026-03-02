@@ -1,8 +1,9 @@
-﻿import type { Metadata } from 'next';
+import type { Metadata } from 'next';
 import { Manrope, Playfair_Display } from 'next/font/google';
 import './globals.css';
 import Header from '../components/layout/header';
 import Footer from '../components/layout/footer';
+import MobileBottomNav from '../components/layout/mobile-bottom-nav';
 import { AppProviders } from '../providers/app-providers';
 import { ServiceWorkerRegistrar } from '../components/ui/service-worker-registrar';
 import { EmailVerificationBanner } from '../components/ui/email-verification-banner';
@@ -45,8 +46,9 @@ export default function RootLayout({
         <AppProviders>
           <Header />
           <EmailVerificationBanner />
-          <main className="flex-1">{children}</main>
+          <main className="flex-1 pb-16 md:pb-0">{children}</main>
           <Footer />
+          <MobileBottomNav />
         </AppProviders>
         <ServiceWorkerRegistrar />
       </body>
