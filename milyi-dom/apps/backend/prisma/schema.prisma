@@ -6,6 +6,7 @@ generator client {
 datasource db {
   provider   = "postgresql"
   url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_DATABASE_URL")
   extensions = [postgis]
 }
 
@@ -48,11 +49,29 @@ model User {
   id               String         @id @default(cuid())
   email            String         @unique
   phone            String?        @unique
-  password         String
+  password         String         // empty string for OAuth-only accounts
   role             Role           @default(GUEST)
   isVerified       Boolean        @default(false)
   isSuperhost      Boolean        @default(false)
   lastActiveAt     DateTime?
+  blockedAt        DateTime?     // Admin block — null = active
+  // OAuth providers
+  googleId         String?        @unique
+  vkId             String?        @unique
+  // Stripe Connect (host payouts)
+  stripeConnectId  String?        @unique
+  // Two-factor authentication (TOTP)
+  twoFactorSecret  String?
+  twoFactorEnabled Boolean        @default(false)
+  // Push notifications (Expo token)
+  pushToken        String?        @unique
+  // Password security: tracks last password change to invalidate old reset tokens
+  passwordChangedAt       DateTime?
+  // Email notification preferences
+  notifEmailBookings      Boolean @default(true)
+  notifEmailMessages      Boolean @default(true)
+  notifEmailSavedSearches Boolean @default(true)
+  notifEmailMarketing     Boolean @default(false)
   profile          Profile?
   listings         Listing[]      @relation("ListingHost")
   bookings         Booking[]      @relation("BookingGuest")
@@ -63,6 +82,8 @@ model User {
   hostedConversations      Conversation[] @relation("ConversationHost")
   guestConversations       Conversation[] @relation("ConversationGuest")
   notifications    Notification[]
+  loyaltyAccount   LoyaltyAccount?
+  savedSearches    SavedSearch[]
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
 }
@@ -122,12 +143,42 @@ model Listing {
   latitude      Decimal          @db.Decimal(9, 6)
   longitude     Decimal          @db.Decimal(9, 6)
   location      Unsupported("geography(Point,4326)")?
+  // iCal integration
+  icalToken     String           @unique @default(cuid())
+  icalSyncUrls  String[]         @default([])
+  blockedDates  BlockedDate[]
+  priceOverrides PriceOverride[]
   createdAt     DateTime         @default(now())
   updatedAt     DateTime         @updatedAt
 
   @@index([status, featured])
   @@index([city])
   @@index([country])
+}
+
+model BlockedDate {
+  id        String   @id @default(cuid())
+  listingId String
+  date      DateTime @db.Date
+  source    String   @default("manual") // 'manual' | 'ical_sync' | 'booking'
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([listingId, date])
+  @@index([listingId, date])
+}
+
+model PriceOverride {
+  id        String   @id @default(cuid())
+  listingId String
+  label     String   // e.g. "Новый год", "Выходные"
+  startDate DateTime @db.Date
+  endDate   DateTime @db.Date
+  price     Decimal  @db.Decimal(10, 2)
+  listing   Listing  @relation(fields: [listingId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@index([listingId, startDate, endDate])
 }
 
 model Amenity {
@@ -211,6 +262,11 @@ model Review {
   accuracy      Int
   location      Int
   value         Int
+  // Host reply
+  hostReply     String?
+  hostRepliedAt DateTime?
+  // Admin moderation
+  isHidden      Boolean  @default(false)
   createdAt     DateTime @default(now())
 }
 
@@ -269,4 +325,112 @@ model Notification {
   user      User             @relation(fields: [userId], references: [id])
 
   @@index([userId, readAt])
+}
+
+// ── Audit log ────────────────────────────────────────────────────────────────
+// Immutable record of critical security and business events.
+// Never delete rows — archive to cold storage after 90 days.
+// ── Loyalty programme ────────────────────────────────────────────────────────
+enum LoyaltyTier {
+  BRONZE
+  SILVER
+  GOLD
+  PLATINUM
+}
+
+model LoyaltyAccount {
+  id           String               @id @default(cuid())
+  userId       String               @unique
+  points       Int                  @default(0)   // current redeemable balance
+  totalEarned  Int                  @default(0)   // lifetime earned (determines tier)
+  tier         LoyaltyTier          @default(BRONZE)
+  user         User                 @relation(fields: [userId], references: [id])
+  transactions LoyaltyTransaction[]
+  createdAt    DateTime             @default(now())
+  updatedAt    DateTime             @updatedAt
+}
+
+model LoyaltyTransaction {
+  id          String         @id @default(cuid())
+  accountId   String
+  points      Int            // positive = earn, negative = spend/expire
+  type        String         // EARN | REDEEM | BONUS | EXPIRE
+  description String
+  bookingId   String?
+  account     LoyaltyAccount @relation(fields: [accountId], references: [id])
+  createdAt   DateTime       @default(now())
+
+  @@index([accountId, createdAt])
+}
+
+enum AuditAction {
+  // Auth
+  USER_LOGIN
+  USER_LOGOUT
+  USER_REGISTER
+  PASSWORD_RESET_REQUEST
+  PASSWORD_RESET_COMPLETE
+  PASSWORD_CHANGE
+  TOKEN_REFRESH
+  // Bookings
+  BOOKING_CREATE
+  BOOKING_CANCEL
+  BOOKING_STATUS_CHANGE
+  // Payments
+  PAYMENT_INTENT_CREATE
+  PAYMENT_SUCCEED
+  PAYMENT_FAIL
+  // Listings
+  LISTING_CREATE
+  LISTING_UPDATE
+  LISTING_DELETE
+  LISTING_PUBLISH
+  LISTING_UNPUBLISH
+  // Admin
+  ADMIN_USER_ROLE_CHANGE
+  ADMIN_USER_BLOCK
+  ADMIN_BOOKING_OVERRIDE
+  ADMIN_LISTING_MODERATE
+}
+
+model SavedSearch {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  filters         Json
+  notifyEmail     Boolean  @default(true)
+  lastCheckedAt   DateTime @default(now())
+  user            User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id           String      @id @default(cuid())
+  // Who performed the action (null = unauthenticated)
+  userId       String?
+  userEmail    String?
+  userRole     String?
+  // What happened
+  action       AuditAction
+  // On what resource
+  resourceType String?
+  resourceId   String?
+  // Request context
+  ipAddress    String?
+  userAgent    String?
+  // Additional data (non-PII)
+  metadata     Json?
+  // Outcome
+  success      Boolean     @default(true)
+  errorMessage String?
+  // When
+  createdAt    DateTime    @default(now())
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@index([resourceType, resourceId])
 }

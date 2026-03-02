@@ -1,0 +1,18 @@
+# Exclude node_modules from all packages (Docker installs its own)
+**/node_modules
+**/.next
+**/dist
+**/.turbo
+**/.git
+
+# Dev files not needed in images
+**/*.log
+**/.env
+**/.env.local
+**/coverage
+**/__tests__
+**/*.test.ts
+**/*.spec.ts
+
+# Mobile app (not built in Docker)
+apps/mobile

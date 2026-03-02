@@ -42,18 +42,18 @@ export async function addFavorite(listingId: string) {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
       if (status === 401) {
-        throw new Error("Please sign in to manage your favourites.");
+        throw new Error("Войдите в аккаунт, чтобы добавлять в избранное.");
       }
       if (status === 400) {
         const message = (error.response?.data as { message?: string } | undefined)?.message;
-        throw new Error(`Could not add listing to favourites: ${message ?? "Invalid request."}`);
+        throw new Error(message ?? "Не удалось добавить объявление в избранное.");
       }
       if (status === 409) {
-        throw new Error("Listing is already saved in favourites.");
+        throw new Error("Объявление уже сохранено в избранном.");
       }
     }
 
-    throw new Error("We could not save this listing right now. Please try again later.");
+    throw new Error("Не удалось сохранить объявление. Попробуйте ещё раз.");
   }
 }
 
@@ -67,17 +67,17 @@ export async function removeFavorite(listingId: string) {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
       if (status === 401) {
-        throw new Error("Please sign in to update your favourites.");
+        throw new Error("Войдите в аккаунт, чтобы управлять избранным.");
       }
       if (status === 400) {
         const message = (error.response?.data as { message?: string } | undefined)?.message;
-        throw new Error(`Could not remove listing from favourites: ${message ?? "Invalid request."}`);
+        throw new Error(message ?? "Не удалось удалить объявление из избранного.");
       }
       if (status === 404) {
-        throw new Error("Listing was not found in favourites.");
+        throw new Error("Объявление не найдено в избранном.");
       }
     }
 
-    throw new Error("We could not update your favourites list. Please try again.");
+    throw new Error("Не удалось обновить список избранного. Попробуйте ещё раз.");
   }
 }

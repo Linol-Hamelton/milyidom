@@ -13,7 +13,7 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const baseStyles =
-  'inline-flex items-center justify-center rounded-lg font-medium transition focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed';
+  'inline-flex items-center justify-center rounded-lg font-medium transition active:scale-95 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed disabled:active:scale-100';
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary: 'bg-pine-600 text-white hover:bg-pine-700 focus:ring-pine-500',

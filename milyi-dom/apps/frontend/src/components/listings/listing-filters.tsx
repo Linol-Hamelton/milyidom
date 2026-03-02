@@ -6,6 +6,7 @@ import { Button } from '../ui/button';
 import { Input } from '../ui/input';
 import { Select } from '../ui/select';
 import { Card, CardContent, CardHeader } from '../ui/card';
+import { CityAutocomplete } from '../ui/city-autocomplete';
 
 interface ListingFiltersProps {
   amenities: Amenity[];
@@ -14,19 +15,19 @@ interface ListingFiltersProps {
 }
 
 const propertyTypes = [
-  { value: 'apartment', label: 'Apartment' },
-  { value: 'loft', label: 'Loft' },
-  { value: 'house', label: 'House' },
-  { value: 'villa', label: 'Villa' },
-  { value: 'studio', label: 'Studio' },
+  { value: 'apartment', label: 'Квартира' },
+  { value: 'loft', label: 'Лофт' },
+  { value: 'house', label: 'Дом' },
+  { value: 'villa', label: 'Вилла' },
+  { value: 'studio', label: 'Студия' },
 ];
 
 const sortOptions = [
-  { value: undefined, label: 'Default order' },
-  { value: 'price_low', label: 'Price: low to high' },
-  { value: 'price_high', label: 'Price: high to low' },
-  { value: 'rating', label: 'Guest rating' },
-  { value: 'new', label: 'Recently added' },
+  { value: undefined, label: 'По умолчанию' },
+  { value: 'price_low', label: 'Цена: по возрастанию' },
+  { value: 'price_high', label: 'Цена: по убыванию' },
+  { value: 'rating', label: 'По рейтингу' },
+  { value: 'new', label: 'Сначала новые' },
 ];
 
 export function ListingFilters({ amenities, onApply, initialFilters }: ListingFiltersProps) {
@@ -68,49 +69,49 @@ export function ListingFilters({ amenities, onApply, initialFilters }: ListingFi
   return (
     <Card className="bg-white/90">
       <CardHeader className="flex flex-col gap-1">
-        <h2 className="text-lg font-semibold text-slate-900">Filter the listings</h2>
-        <p className="text-sm text-slate-500">Adjust the destination, budget, and comfort level.</p>
+        <h2 className="text-lg font-semibold text-slate-900">Фильтры</h2>
+        <p className="text-sm text-slate-500">Уточните направление, бюджет и уровень комфорта.</p>
       </CardHeader>
       <CardContent>
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <FilterInput
-              label="City"
+            <CityAutocomplete
+              label="Город"
               value={filters.city ?? ''}
               onChange={(value) => handleChange('city', value || undefined)}
-              placeholder="Moscow, Saint Petersburg..."
+              placeholder="Москва, Санкт-Петербург…"
             />
             <FilterInput
-              label="Country"
+              label="Страна"
               value={filters.country ?? ''}
               onChange={(value) => handleChange('country', value || undefined)}
-              placeholder="Russia"
+              placeholder="Россия"
             />
             <FilterNumber
-              label="Guests"
+              label="Гостей"
               value={filters.guests ?? 1}
               min={1}
               onChange={(value) => handleChange('guests', value || 1)}
             />
             <FilterInput
-              label="Check-in date"
+              label="Дата заезда"
               type="date"
               value={filters.checkIn ?? ''}
               onChange={(value) => handleChange('checkIn', value || undefined)}
             />
             <FilterInput
-              label="Check-out date"
+              label="Дата выезда"
               type="date"
               value={filters.checkOut ?? ''}
               onChange={(value) => handleChange('checkOut', value || undefined)}
             />
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-              Property type
+              Тип жилья
               <Select
                 value={filters.propertyType ?? ''}
                 onChange={(event) => handleChange('propertyType', event.target.value || undefined)}
               >
-                <option value="">Any</option>
+                <option value="">Любой</option>
                 {propertyTypes.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
@@ -119,19 +120,19 @@ export function ListingFilters({ amenities, onApply, initialFilters }: ListingFi
               </Select>
             </label>
             <FilterNumber
-              label="Price from"
+              label="Цена от"
               value={filters.minPrice ?? 0}
               min={0}
               onChange={(value) => handleChange('minPrice', value || undefined)}
             />
             <FilterNumber
-              label="Price to"
+              label="Цена до"
               value={filters.maxPrice ?? 0}
               min={0}
               onChange={(value) => handleChange('maxPrice', value || undefined)}
             />
             <FilterNumber
-              label="Minimum rating"
+              label="Рейтинг от"
               value={filters.minRating ?? 0}
               min={1}
               max={5}
@@ -139,7 +140,7 @@ export function ListingFilters({ amenities, onApply, initialFilters }: ListingFi
               onChange={(value) => handleChange('minRating', value || undefined)}
             />
             <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-              Sort by
+              Сортировка
               <Select
                 value={filters.sort ?? ''}
                 onChange={(event) =>
@@ -160,12 +161,12 @@ export function ListingFilters({ amenities, onApply, initialFilters }: ListingFi
                 onChange={(event) => handleChange('instantBook', event.target.checked || undefined)}
                 className="h-4 w-4 rounded border-slate-300 text-pine-600 focus:ring-pine-500"
               />
-              Instant book only
+              Только мгновенное бронирование
             </label>
           </div>
 
           <div>
-            <span className="text-sm font-medium text-slate-700">Amenities</span>
+            <span className="text-sm font-medium text-slate-700">Удобства</span>
             <div className="mt-3 grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
               {amenities.map((amenity) => (
                 <label
@@ -186,9 +187,9 @@ export function ListingFilters({ amenities, onApply, initialFilters }: ListingFi
 
           <div className="flex flex-wrap items-center justify-end gap-3">
             <Button type="button" variant="ghost" onClick={handleReset}>
-              Reset
+              Сбросить
             </Button>
-            <Button type="submit">Apply filters</Button>
+            <Button type="submit">Применить</Button>
           </div>
         </form>
       </CardContent>

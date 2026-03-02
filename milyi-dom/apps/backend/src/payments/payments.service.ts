@@ -111,7 +111,7 @@ export class PaymentsService {
     return {
       clientSecret: null,
       payment: record,
-      message: 'Stripe secret key not configured. Payment recorded as manual.',
+      message: 'Stripe не настроен. Платёж записан как ручной.',
     };
   }
 
@@ -358,6 +358,52 @@ export class PaymentsService {
     };
   }
 
+  async exportTransactionsCsv(
+    hostId: string,
+    period: 'week' | 'month' | 'year' = 'month',
+  ): Promise<string> {
+    const now = new Date();
+    const start = new Date(now);
+    if (period === 'week') start.setDate(start.getDate() - 7);
+    else if (period === 'year') start.setFullYear(start.getFullYear() - 1);
+    else start.setMonth(start.getMonth() - 1);
+
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        status: PaymentStatus.PAID,
+        booking: { listing: { hostId }, checkOut: { gte: start } },
+      },
+      include: {
+        booking: {
+          include: {
+            listing: { select: { title: true } },
+            guest: { select: { email: true } },
+          },
+        },
+      },
+      orderBy: { capturedAt: 'desc' },
+    });
+
+    const header =
+      'id,date,listing,guest_email,amount,currency,method,receipt_url';
+    const rows = payments.map((p) => {
+      const date = (p.capturedAt ?? p.createdAt).toISOString();
+      const title = (p.booking.listing.title ?? '').replace(/"/g, '""');
+      return [
+        p.id,
+        date,
+        `"${title}"`,
+        p.booking.guest.email,
+        Number(p.amount).toFixed(2),
+        p.currency,
+        p.method,
+        p.receiptUrl ?? '',
+      ].join(',');
+    });
+
+    return [header, ...rows].join('\n');
+  }
+
   async markPayment(hostId: string, bookingId: string, dto: MarkPaymentDto) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
@@ -393,5 +439,78 @@ export class PaymentsService {
     });
 
     return record;
+  }
+
+  // ── Stripe Connect (host onboarding & payouts) ───────────────────────────────
+
+  /**
+   * Create a Stripe Connect onboarding link for a host.
+   * Host visits this URL to connect their bank account.
+   */
+  async createConnectOnboardingLink(
+    hostId: string,
+  ): Promise<{ url: string }> {
+    const host = await this.prisma.user.findUnique({
+      where: { id: hostId },
+      select: { email: true, stripeConnectId: true },
+    });
+    if (!host) throw new NotFoundException('User not found');
+
+    if (!this.stripe) {
+      return { url: '#stripe-not-configured' };
+    }
+
+    let accountId = host.stripeConnectId;
+
+    if (!accountId) {
+      const account = await this.stripe.accounts.create({
+        type: 'express',
+        email: host.email,
+        capabilities: {
+          card_payments: { requested: true },
+          transfers: { requested: true },
+        },
+        metadata: { hostId },
+      });
+      accountId = account.id;
+      await this.prisma.user.update({
+        where: { id: hostId },
+        data: { stripeConnectId: accountId },
+      });
+    }
+
+    const frontendUrl =
+      this.configService.get<string>('frontend.url') ?? 'http://localhost:3000';
+
+    const link = await this.stripe.accountLinks.create({
+      account: accountId,
+      refresh_url: `${frontendUrl}/host/payouts?refresh=true`,
+      return_url: `${frontendUrl}/host/payouts?connected=true`,
+      type: 'account_onboarding',
+    });
+
+    return { url: link.url };
+  }
+
+  /** Get the Connect account status for a host */
+  async getConnectStatus(
+    hostId: string,
+  ): Promise<{ connected: boolean; chargesEnabled: boolean; detailsSubmitted: boolean }> {
+    const host = await this.prisma.user.findUnique({
+      where: { id: hostId },
+      select: { stripeConnectId: true },
+    });
+    if (!host) throw new NotFoundException('User not found');
+
+    if (!this.stripe || !host.stripeConnectId) {
+      return { connected: false, chargesEnabled: false, detailsSubmitted: false };
+    }
+
+    const account = await this.stripe.accounts.retrieve(host.stripeConnectId);
+    return {
+      connected: true,
+      chargesEnabled: account.charges_enabled,
+      detailsSubmitted: account.details_submitted,
+    };
   }
 }

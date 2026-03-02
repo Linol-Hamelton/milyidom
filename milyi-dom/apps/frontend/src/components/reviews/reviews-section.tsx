@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { createReview, fetchListingReviewStats, fetchListingReviews } from '../../services/reviews';
+import { createReview, fetchListingReviewStats, fetchListingReviews, fetchReviewSummary } from '../../services/reviews';
 import { fetchGuestBookings } from '../../services/bookings';
 import type { Booking, Review, ReviewStats } from '../../types/api';
 import { Button } from '../ui/button';
@@ -51,6 +51,8 @@ export function ReviewsSectionFixed({ listingId }: ReviewsSectionProps) {
   const [hasMore, setHasMore] = useState(true);
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState<Booking[]>([]);
+  const [aiSummary, setAiSummary] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   const [formState, setFormState] = useState<ReviewFormState>({
     bookingId: '',
@@ -116,7 +118,12 @@ export function ReviewsSectionFixed({ listingId }: ReviewsSectionProps) {
   useEffect(() => {
     loadReviews(1);
     loadStats();
-  }, [loadReviews, loadStats]);
+    // Lazy-load AI summary
+    setSummaryLoading(true);
+    fetchReviewSummary(listingId)
+      .then(setAiSummary)
+      .finally(() => setSummaryLoading(false));
+  }, [loadReviews, loadStats, listingId]);
 
   useEffect(() => {
     loadEligibleBookings();
@@ -176,6 +183,16 @@ export function ReviewsSectionFixed({ listingId }: ReviewsSectionProps) {
           </p>
         )}
       </div>
+
+      {/* AI Review Summary */}
+      {summaryLoading ? (
+        <div className="h-16 animate-pulse rounded-2xl bg-pine-50" />
+      ) : aiSummary ? (
+        <div className="rounded-2xl border border-pine-100 bg-pine-50 px-4 py-3">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-pine-600">✦ AI-резюме отзывов</p>
+          <p className="text-sm text-slate-700">{aiSummary}</p>
+        </div>
+      ) : null}
 
       {isAuthenticated && bookings.length > 0 && (
         <Card className="bg-white/90">
@@ -254,6 +271,12 @@ export function ReviewsSectionFixed({ listingId }: ReviewsSectionProps) {
               </span>
             </div>
             {review.comment && <p className="mt-3 text-sm text-slate-700">{review.comment}</p>}
+            {review.hostReply && (
+              <div className="mt-3 rounded-xl bg-slate-50 border border-slate-100 px-4 py-3">
+                <p className="mb-1 text-xs font-semibold text-slate-500">Ответ хозяина</p>
+                <p className="text-sm text-slate-700">{review.hostReply}</p>
+              </div>
+            )}
             <dl className="mt-4 grid gap-2 text-xs text-slate-500 sm:grid-cols-3">
               {ratingFields.map(({ key, label }) => (
                 <div key={key} className="flex items-center justify-between rounded-xl bg-sand-100 px-3 py-2">

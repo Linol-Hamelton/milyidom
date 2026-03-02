@@ -7,10 +7,13 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { BookingStatus, ListingStatus, Prisma } from '@prisma/client';
 import type { Express } from 'express';
-import { promises as fs } from 'fs';
-import { extname, join, posix } from 'path';
+import { posix } from 'path';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { SearchService } from '../search/search.service';
+import { AiSearchService } from '../ai-search/ai-search.service';
+import { CacheService } from '../cache/cache.service';
+import { StorageService } from '../storage/storage.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { SearchListingsDto } from './dto/search-listings.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
@@ -79,19 +82,19 @@ export type ListingSummary = Omit<
 @Injectable()
 export class ListingsService {
   private readonly imageBaseUrl: string;
-  private readonly imageRoot: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
+    private readonly searchService: SearchService,
+    private readonly aiSearchService: AiSearchService,
+    private readonly cacheService: CacheService,
+    private readonly storageService: StorageService,
   ) {
     const configuredUrl = this.configService.get<string>('images.baseUrl');
     this.imageBaseUrl = (
       configuredUrl || 'http://localhost:4001/images'
     ).replace(/\/$/, '');
-    this.imageRoot =
-      this.configService.get<string>('images.root') ??
-      join(process.cwd(), '..', '..', 'images');
   }
 
   private toNumber(value: Prisma.Decimal | number): number {
@@ -105,6 +108,29 @@ export class ListingsService {
       return null;
     }
     return this.toNumber(value);
+  }
+
+  private toSearchDocument(listing: ListingWithRelations) {
+    return {
+      id: listing.id,
+      title: listing.title,
+      description: listing.description ?? '',
+      city: listing.city,
+      country: listing.country,
+      pricePerNight: this.toNumber(listing.basePrice),
+      maxGuests: listing.guests,
+      bedroomsCount: listing.bedrooms,
+      bathroomsCount: this.toNumber(listing.bathrooms),
+      rating: this.toNumber(listing.rating ?? 0),
+      reviewsCount: listing.reviewCount,
+      isSuperhost: false, // not in BASE_INCLUDE host select — default to false
+      amenities: listing.amenities.map((a) => a.amenity.name),
+      status: listing.status,
+      location:
+        listing.latitude && listing.longitude
+          ? ([this.toNumber(listing.latitude), this.toNumber(listing.longitude)] as [number, number])
+          : undefined,
+    };
   }
 
   private normalizeImageUrl(url?: string | null): string | null {
@@ -163,6 +189,20 @@ export class ListingsService {
   }
 
   async create(hostId: string, dto: CreateListingDto) {
+    // AI fraud detection: reject suspicious listings before persisting
+    const fraud = await this.aiSearchService.detectFraud({
+      title: dto.title,
+      description: dto.description,
+      basePrice: dto.basePrice,
+      city: dto.city,
+      country: dto.country,
+    });
+    if (fraud.isFraud) {
+      throw new BadRequestException(
+        `Объявление отклонено системой безопасности: ${fraud.reason}`,
+      );
+    }
+
     const slug = await this.generateSlug(dto.title);
 
     const listing = await this.prisma.listing.create({
@@ -217,6 +257,8 @@ export class ListingsService {
     });
 
     await this.updateLocation(listing.id, dto.longitude, dto.latitude);
+
+    void this.searchService.indexListing(this.toSearchDocument(listing));
 
     return this.serializeListing(listing);
   }
@@ -292,6 +334,8 @@ export class ListingsService {
       await this.updateLocation(listingId, dto.longitude, dto.latitude);
     }
 
+    void this.searchService.indexListing(this.toSearchDocument(listing));
+
     return this.serializeListing(listing);
   }
 
@@ -312,7 +356,7 @@ export class ListingsService {
     });
 
     if (!listing) {
-      throw new NotFoundException('Listing not found');
+      throw new NotFoundException('Объявление не найдено');
     }
 
     return this.serializeListing(listing);
@@ -325,27 +369,32 @@ export class ListingsService {
     });
 
     if (!listing) {
-      throw new NotFoundException('Listing not found');
+      throw new NotFoundException('Объявление не найдено');
     }
 
     return this.serializeListing(listing);
   }
 
   async getFeaturedListings(limit = 8) {
-    const listings = await this.prisma.listing.findMany({
-      where: {
-        status: ListingStatus.PUBLISHED,
-        featured: true,
+    return this.cacheService.wrap(
+      `listings:featured:${limit}`,
+      async () => {
+        const listings = await this.prisma.listing.findMany({
+          where: {
+            status: ListingStatus.PUBLISHED,
+            featured: true,
+          },
+          include: BASE_INCLUDE,
+          orderBy: [
+            { rating: Prisma.SortOrder.desc },
+            { reviewCount: Prisma.SortOrder.desc },
+          ],
+          take: limit,
+        });
+        return this.serializeListings(listings);
       },
-      include: BASE_INCLUDE,
-      orderBy: [
-        { rating: Prisma.SortOrder.desc },
-        { reviewCount: Prisma.SortOrder.desc },
-      ],
-      take: limit,
-    });
-
-    return this.serializeListings(listings);
+      300, // 5 minutes — featured list changes rarely
+    );
   }
 
   async getHostListings(
@@ -386,7 +435,7 @@ export class ListingsService {
     } = {},
   ) {
     if (!file) {
-      throw new BadRequestException('Image file is required');
+      throw new BadRequestException('Необходимо выбрать файл изображения');
     }
 
     await this.ensureHostOwnership(listingId, hostId);
@@ -402,25 +451,18 @@ export class ListingsService {
     });
 
     if (!listing) {
-      throw new NotFoundException('Listing not found');
+      throw new NotFoundException('Объявление не найдено');
     }
 
     const segments = this.buildImagePathSegments(listing);
-    const targetDir = join(this.imageRoot, ...segments);
-    await fs.mkdir(targetDir, { recursive: true });
+    const keyPrefix = posix.join(...segments);
 
-    const extension = (
-      extname(file.originalname || '') || '.jpg'
-    ).toLowerCase();
-    const baseName = this.sanitizeFileName(
-      file.originalname?.replace(extname(file.originalname || ''), '') ||
-        'image',
+    const { url, key } = await this.storageService.upload(
+      file.buffer,
+      file.originalname || 'image.jpg',
+      file.mimetype || 'image/jpeg',
+      keyPrefix,
     );
-    const uniqueName = `${baseName || 'image'}-${Date.now()}${extension}`;
-    const destination = join(targetDir, uniqueName);
-    await fs.writeFile(destination, file.buffer);
-
-    const relativePath = posix.join(...segments, uniqueName);
 
     if (options.isPrimary) {
       await this.prisma.propertyImage.updateMany({
@@ -437,7 +479,7 @@ export class ListingsService {
     const imageRecord = await this.prisma.propertyImage.create({
       data: {
         listingId,
-        url: relativePath,
+        url: key,   // store key; public URL derived at read time
         description: options.description,
         position,
         isPrimary: options.isPrimary ?? false,
@@ -446,7 +488,7 @@ export class ListingsService {
 
     return {
       ...imageRecord,
-      url: this.normalizeImageUrl(imageRecord.url),
+      url,   // return the full public URL directly
     };
   }
 
@@ -464,12 +506,12 @@ export class ListingsService {
     // Date validation
     if (checkIn >= checkOut) {
       throw new BadRequestException(
-        'Check-out date must be after check-in date',
+        'Дата выезда должна быть позже даты заезда',
       );
     }
 
     if (checkIn < new Date()) {
-      throw new BadRequestException('Check-in date cannot be in the past');
+      throw new BadRequestException('Дата заезда не может быть в прошлом');
     }
 
     // Check for conflicting bookings
@@ -528,6 +570,8 @@ export class ListingsService {
       include: BASE_INCLUDE,
     });
 
+    void this.searchService.indexListing(this.toSearchDocument(listing));
+
     return this.serializeListing(listing);
   }
 
@@ -539,6 +583,7 @@ export class ListingsService {
       where: { id: listingId },
       include: BASE_INCLUDE,
     });
+    void this.searchService.deleteListing(listingId);
     return this.serializeListing(listing);
   }
 
@@ -684,7 +729,13 @@ export class ListingsService {
       };
     });
 
-    const sorted = itemsWithDistance.sort(
+    const filtered = dto.radiusKm
+      ? itemsWithDistance.filter(
+          (l) => l.distance != null && l.distance <= dto.radiusKm!,
+        )
+      : itemsWithDistance;
+
+    const sorted = filtered.sort(
       (a, b) => (a.distance ?? 0) - (b.distance ?? 0),
     );
     const total = sorted.length;
@@ -742,7 +793,7 @@ export class ListingsService {
       select: { id: true },
     });
     if (!listing) {
-      throw new NotFoundException('Listing not found');
+      throw new NotFoundException('Объявление не найдено');
     }
   }
 
@@ -753,7 +804,7 @@ export class ListingsService {
     });
 
     if (!listing) {
-      throw new NotFoundException('Listing not found');
+      throw new NotFoundException('Объявление не найдено');
     }
 
     if (listing.hostId !== hostId) {
@@ -848,5 +899,167 @@ export class ListingsService {
       latitude,
       listingId,
     );
+  }
+
+  async getPricingSuggestion(listingId: string, hostId: string) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      select: {
+        id: true,
+        hostId: true,
+        city: true,
+        propertyType: true,
+        bedrooms: true,
+        basePrice: true,
+        currency: true,
+        rating: true,
+        bookings: {
+          where: {
+            status: { in: [BookingStatus.CONFIRMED, BookingStatus.COMPLETED] },
+            createdAt: { gte: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000) },
+          },
+          select: { checkIn: true, checkOut: true },
+        },
+      },
+    });
+
+    if (!listing) throw new NotFoundException('Объявление не найдено');
+    if (listing.hostId !== hostId)
+      throw new UnauthorizedException('У вас нет прав на это объявление');
+
+    // Occupancy rate: total booked nights / 365
+    const bookedNights = listing.bookings.reduce((sum, b) => {
+      const nights = Math.ceil(
+        (b.checkOut.getTime() - b.checkIn.getTime()) / (1000 * 60 * 60 * 24),
+      );
+      return sum + nights;
+    }, 0);
+    const occupancyRate = Math.min(100, Math.round((bookedNights / 365) * 100));
+
+    // Market data: similar listings in same city
+    const market = await this.prisma.listing.aggregate({
+      where: {
+        city: listing.city,
+        status: ListingStatus.PUBLISHED,
+        id: { not: listing.id },
+      },
+      _avg: { basePrice: true, rating: true },
+      _min: { basePrice: true },
+      _max: { basePrice: true },
+      _count: { id: true },
+    });
+
+    return this.aiSearchService.suggestDynamicPrice({
+      city: listing.city,
+      propertyType: listing.propertyType,
+      bedrooms: listing.bedrooms,
+      currentPrice: Number(listing.basePrice),
+      currency: listing.currency,
+      occupancyRate,
+      month: new Date().getMonth() + 1,
+      marketData: {
+        avgPrice: Math.round(Number(market._avg.basePrice ?? listing.basePrice)),
+        minPrice: Math.round(Number(market._min.basePrice ?? listing.basePrice)),
+        maxPrice: Math.round(Number(market._max.basePrice ?? listing.basePrice)),
+        listingsCount: market._count.id,
+        avgRating: Number(market._avg.rating ?? 0),
+      },
+    });
+  }
+
+  async getCitiesAutocomplete(q: string): Promise<string[]> {
+    const key = `listings:cities:${q.toLowerCase()}`;
+    return this.cacheService.wrap(
+      key,
+      async () => {
+        const rows = await this.prisma.listing.findMany({
+          where: {
+            status: 'PUBLISHED',
+            ...(q ? { city: { contains: q, mode: 'insensitive' } } : {}),
+          },
+          select: { city: true },
+          distinct: ['city'],
+          take: 10,
+          orderBy: { city: 'asc' },
+        });
+        return rows.map((r) => r.city);
+      },
+      300, // 5 minutes
+    );
+  }
+
+  async getSimilarListings(listingId: string, limit = 3): Promise<ListingSummary[]> {
+    const source = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      select: { city: true, propertyType: true, basePrice: true },
+    });
+    if (!source) return [];
+
+    const price = this.toNumber(source.basePrice);
+    const listings = await this.prisma.listing.findMany({
+      where: {
+        id: { not: listingId },
+        status: ListingStatus.PUBLISHED,
+        city: { equals: source.city, mode: 'insensitive' },
+        propertyType: { equals: source.propertyType, mode: 'insensitive' },
+        basePrice: {
+          gte: new Prisma.Decimal(price * 0.6),
+          lte: new Prisma.Decimal(price * 1.4),
+        },
+      },
+      include: BASE_INCLUDE,
+      orderBy: { rating: 'desc' },
+      take: limit,
+    });
+    return this.serializeListings(listings);
+  }
+
+  async getPriceOverrides(listingId: string, hostId: string) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      select: { hostId: true },
+    });
+    if (!listing || listing.hostId !== hostId) {
+      throw new UnauthorizedException('У вас нет прав на это объявление');
+    }
+    return this.prisma.priceOverride.findMany({
+      where: { listingId },
+      orderBy: { startDate: 'asc' },
+    });
+  }
+
+  async createPriceOverride(
+    listingId: string,
+    hostId: string,
+    dto: { label: string; startDate: string; endDate: string; price: number },
+  ) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      select: { hostId: true },
+    });
+    if (!listing || listing.hostId !== hostId) {
+      throw new UnauthorizedException('У вас нет прав на это объявление');
+    }
+    return this.prisma.priceOverride.create({
+      data: {
+        listingId,
+        label: dto.label,
+        startDate: new Date(dto.startDate),
+        endDate: new Date(dto.endDate),
+        price: new Prisma.Decimal(dto.price),
+      },
+    });
+  }
+
+  async deletePriceOverride(listingId: string, overrideId: string, hostId: string) {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      select: { hostId: true },
+    });
+    if (!listing || listing.hostId !== hostId) {
+      throw new UnauthorizedException('У вас нет прав на это объявление');
+    }
+    await this.prisma.priceOverride.delete({ where: { id: overrideId, listingId } });
+    return { success: true };
   }
 }

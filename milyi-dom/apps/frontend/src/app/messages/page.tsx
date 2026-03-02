@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
 import { RequireAuth } from '../../components/ui/require-auth';
 import { Button } from '../../components/ui/button';
@@ -8,22 +8,170 @@ import { Textarea } from '../../components/ui/textarea';
 import {
   fetchConversations,
   fetchConversation,
-  sendMessage,
-  markMessageRead,
   markAllMessagesRead,
 } from '../../services/messages';
 import type { Conversation, Message } from '../../types/api';
 import { parseError } from '../../lib/api-client';
 import { useAuth } from '../../hooks/useAuth';
+import {
+  useConversationRoom,
+  useSocketEvent,
+  useSendMessage,
+  WS_EVENT,
+  getSocket,
+} from '../../hooks/useSocket';
+
+function ConversationView({ conversationId, userId }: { conversationId: string; userId: string }) {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [body, setBody] = useState('');
+  const [sending, setSending] = useState(false);
+  const [isTyping, setIsTyping] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+  const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendWs = useSendMessage();
+
+  // Join this conversation's WebSocket room
+  useConversationRoom(conversationId);
+
+  // Load history from REST
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const data = await fetchConversation(conversationId);
+        setMessages(data.messages);
+        // Mark as read via WebSocket
+        const socket = getSocket();
+        if (socket?.connected) {
+          socket.emit(WS_EVENT.MARK_READ, { conversationId });
+        }
+      } catch (err) {
+        toast.error(parseError(err).message);
+      }
+    };
+    void load();
+  }, [conversationId]);
+
+  // Scroll to bottom on new messages
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  // Receive new messages via WebSocket
+  useSocketEvent<Message>(WS_EVENT.MESSAGE, (msg) => {
+    if (msg.conversationId !== conversationId) return;
+    setMessages((prev) => {
+      // Deduplicate by id
+      if (prev.some((m) => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+    // Mark read since we're in the conversation
+    const socket = getSocket();
+    if (socket?.connected) {
+      socket.emit(WS_EVENT.MARK_READ, { conversationId });
+    }
+  });
+
+  // Typing indicators
+  useSocketEvent<{ userId: string; conversationId: string }>(WS_EVENT.TYPING_START, (p) => {
+    if (p.conversationId !== conversationId || p.userId === userId) return;
+    setIsTyping(true);
+  });
+  useSocketEvent<{ userId: string; conversationId: string }>(WS_EVENT.TYPING_STOP, (p) => {
+    if (p.conversationId !== conversationId || p.userId === userId) return;
+    setIsTyping(false);
+  });
+
+  const emitTyping = (typing: boolean) => {
+    const socket = getSocket();
+    if (!socket?.connected) return;
+    socket.emit(typing ? WS_EVENT.TYPING_START : WS_EVENT.TYPING_STOP, { conversationId });
+  };
+
+  const handleBodyChange = (val: string) => {
+    setBody(val);
+    emitTyping(true);
+    if (typingTimeout.current) clearTimeout(typingTimeout.current);
+    typingTimeout.current = setTimeout(() => emitTyping(false), 2000);
+  };
+
+  const handleSend = (e: React.FormEvent) => {
+    e.preventDefault();
+    const text = body.trim();
+    if (!text || sending) return;
+    setSending(true);
+    try {
+      sendWs(conversationId, text);
+      setBody('');
+      emitTyping(false);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  return (
+    <section className="flex min-h-[420px] flex-col gap-4 rounded-3xl bg-white p-6 shadow-soft">
+      <h2 className="text-lg font-semibold text-slate-900">Переписка</h2>
+      <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-100 bg-sand-50 p-4 max-h-[480px]">
+        {messages.length === 0 ? (
+          <p className="text-sm text-slate-500">Напишите первое сообщение.</p>
+        ) : (
+          <div className="space-y-3">
+            {messages.map((message) => {
+              const isMine = message.senderId === userId;
+              return (
+                <div
+                  key={message.id}
+                  className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-soft ${
+                    isMine
+                      ? 'ml-auto bg-pine-600 text-white'
+                      : message.readAt
+                      ? 'bg-white text-slate-700'
+                      : 'bg-pine-50 text-pine-700'
+                  }`}
+                >
+                  <p>{message.body}</p>
+                  <span className="mt-1 block text-[11px] opacity-60">
+                    {new Date(message.sentAt).toLocaleString('ru-RU', {
+                      hour: '2-digit',
+                      minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+              );
+            })}
+            {isTyping && (
+              <div className="flex items-center gap-1 px-4 py-2 text-xs text-slate-400">
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:0ms]" />
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:150ms]" />
+                <span className="inline-block h-1.5 w-1.5 rounded-full bg-slate-400 animate-bounce [animation-delay:300ms]" />
+              </div>
+            )}
+            <div ref={bottomRef} />
+          </div>
+        )}
+      </div>
+      <form onSubmit={handleSend} className="space-y-3">
+        <Textarea
+          rows={3}
+          placeholder="Напишите сообщение…"
+          value={body}
+          onChange={(e) => handleBodyChange(e.target.value)}
+        />
+        <div className="flex justify-end">
+          <Button type="submit" disabled={sending || !body.trim()}>
+            Отправить
+          </Button>
+        </div>
+      </form>
+    </section>
+  );
+}
 
 export default function MessagesPage() {
   const { user, isAuthenticated } = useAuth();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
-  const [body, setBody] = useState('');
 
   const loadConversations = useCallback(async () => {
     if (!isAuthenticated) return;
@@ -31,78 +179,30 @@ export default function MessagesPage() {
     try {
       const data = await fetchConversations();
       setConversations(data);
-      if (data.length > 0) {
+      if (data.length > 0 && !activeId) {
         setActiveId(data[0].id);
-      } else {
-        setActiveId(null);
-        setMessages([]);
       }
     } catch (error) {
-      const { message } = parseError(error);
-      toast.error(message);
+      toast.error(parseError(error).message);
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
-
-  const loadConversation = useCallback(
-    async (conversationId: string) => {
-      if (!isAuthenticated) return;
-      try {
-        const data = await fetchConversation(conversationId);
-        setMessages(data.messages);
-        await markAllMessagesRead();
-      } catch (error) {
-        const { message } = parseError(error);
-        toast.error(message);
-      }
-    },
-    [isAuthenticated],
-  );
+  }, [isAuthenticated, activeId]);
 
   useEffect(() => {
-    loadConversations();
+    void loadConversations();
   }, [loadConversations]);
 
-  useEffect(() => {
-    if (activeId) {
-      loadConversation(activeId);
-    }
-  }, [activeId, loadConversation]);
-
-  const handleSend = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (!body.trim() || !activeId) return;
-    setSending(true);
-    try {
-      const message = await sendMessage({ conversationId: activeId, body });
-      setMessages((prev) => [...prev, message]);
-      setBody('');
-    } catch (error) {
-      const { message } = parseError(error);
-      toast.error(message);
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleSelectConversation = (conversationId: string) => {
-    setActiveId(conversationId);
-  };
-
-  const handleMarkRead = async (messageId: string) => {
-    try {
-      await markMessageRead(messageId);
-      setMessages((prev) =>
-        prev.map((message) => (message.id === messageId ? { ...message, readAt: new Date().toISOString() } : message)),
-      );
-    } catch (error) {
-      const { message } = parseError(error);
-      toast.error(message);
-    }
-  };
-
-  const heading = activeId ? `ID ${activeId.slice(0, 8)}` : 'Выберите переписку';
+  // When a new WS message arrives for a conversation NOT currently open,
+  // refresh the sidebar to update "last updated" time.
+  useSocketEvent<Message>(WS_EVENT.MESSAGE, (msg) => {
+    if (msg.conversationId === activeId) return; // handled by ConversationView
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.id === msg.conversationId ? { ...c, updatedAt: msg.sentAt } : c,
+      ),
+    );
+  });
 
   return (
     <RequireAuth roles={['HOST', 'ADMIN', 'GUEST']}>
@@ -120,14 +220,17 @@ export default function MessagesPage() {
             <aside className="space-y-3">
               <div className="flex items-center justify-between">
                 <h2 className="text-sm font-semibold text-slate-900">Диалоги</h2>
-                <Button variant="ghost" onClick={() => markAllMessagesRead().then(loadConversations)}>
+                <Button
+                  variant="ghost"
+                  onClick={() => markAllMessagesRead().then(loadConversations)}
+                >
                   Прочитать всё
                 </Button>
               </div>
               <div className="space-y-2">
                 {loading ? (
-                  Array.from({ length: 4 }).map((_, index) => (
-                    <div key={index} className="h-14 animate-pulse rounded-2xl bg-white" />
+                  Array.from({ length: 4 }).map((_, i) => (
+                    <div key={i} className="h-14 animate-pulse rounded-2xl bg-white" />
                   ))
                 ) : conversations.length === 0 ? (
                   <p className="text-sm text-slate-500">Переписок пока нет.</p>
@@ -135,7 +238,7 @@ export default function MessagesPage() {
                   conversations.map((conversation) => (
                     <button
                       key={conversation.id}
-                      onClick={() => handleSelectConversation(conversation.id)}
+                      onClick={() => setActiveId(conversation.id)}
                       className={`w-full rounded-2xl border px-4 py-3 text-left text-sm transition ${
                         activeId === conversation.id
                           ? 'border-pine-500 bg-white text-pine-600'
@@ -154,58 +257,17 @@ export default function MessagesPage() {
               </div>
             </aside>
 
-            <section className="flex min-h-[420px] flex-col gap-4 rounded-3xl bg-white p-6 shadow-soft">
-              <div className="flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-slate-900">Переписка</h2>
-                <span className="text-xs uppercase tracking-wide text-slate-400">{heading}</span>
-              </div>
-              <div className="flex-1 overflow-y-auto rounded-2xl border border-slate-100 bg-sand-50 p-4">
-                {messages.length === 0 ? (
-                  <p className="text-sm text-slate-500">Выберите диалог, чтобы прочитать сообщения.</p>
-                ) : (
-                  <div className="space-y-3">
-                    {messages.map((message) => {
-                      const isMine = message.senderId === user?.id;
-                      return (
-                        <div
-                          key={message.id}
-                          className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm shadow-soft ${
-                            isMine
-                              ? 'ml-auto bg-pine-600 text-white'
-                              : message.readAt
-                              ? 'bg-white text-slate-700'
-                              : 'bg-pine-50 text-pine-700'
-                          }`}
-                        >
-                          <p>{message.body}</p>
-                          <div className="mt-2 flex items-center justify-between text-[11px] text-white/80">
-                            <span>{new Date(message.sentAt).toLocaleString('ru-RU')}</span>
-                            {!isMine && !message.readAt && (
-                              <button className="text-white" onClick={() => handleMarkRead(message.id)}>
-                                Прочитано
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-              <form onSubmit={handleSend} className="space-y-3">
-                <Textarea
-                  rows={3}
-                  placeholder="Напишите сообщение"
-                  value={body}
-                  onChange={(event) => setBody(event.target.value)}
-                />
-                <div className="flex justify-end">
-                  <Button type="submit" disabled={sending || !activeId}>
-                    Отправить
-                  </Button>
-                </div>
-              </form>
-            </section>
+            {activeId && user ? (
+              <ConversationView
+                key={activeId}
+                conversationId={activeId}
+                userId={user.id}
+              />
+            ) : (
+              <section className="flex items-center justify-center min-h-[420px] rounded-3xl bg-white p-6 shadow-soft">
+                <p className="text-sm text-slate-500">Выберите диалог, чтобы прочитать сообщения.</p>
+              </section>
+            )}
           </div>
         </div>
       </div>

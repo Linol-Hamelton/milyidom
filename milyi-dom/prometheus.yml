@@ -1,0 +1,16 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: milyi-dom-backend
+    # Backend exposes /api/metrics (requires ADMIN JWT)
+    # For internal monitoring, use a dedicated service-account token
+    # stored in Prometheus secrets — never hardcode in this file.
+    static_configs:
+      - targets: ['backend:4001']
+    metrics_path: /api/metrics
+    # Uncomment and fill in after creating a monitoring service account:
+    # authorization:
+    #   credentials_file: /etc/prometheus/bearer_token
+    scheme: http

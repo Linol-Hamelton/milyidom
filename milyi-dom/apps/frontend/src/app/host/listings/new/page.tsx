@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 import { RequireAuth } from '../../../../components/ui/require-auth';
 import { ListingForm, ListingFormValues } from '../../../../components/host/listing-form';
 import { fetchAmenities } from '../../../../services/amenities';
-import { createListing } from '../../../../services/listings';
+import { createListing, uploadListingImage } from '../../../../services/listings';
 import type { Amenity } from '../../../../types/api';
 import { parseError } from '../../../../lib/api-client';
 
@@ -75,7 +75,12 @@ export default function HostCreateListingPage() {
         status: 'DRAFT',
       };
 
-      await createListing(payload);
+      const created = await createListing(payload);
+
+      if (values.uploadFiles.length > 0) {
+        await Promise.all(values.uploadFiles.map((file) => uploadListingImage(created.id, file)));
+      }
+
       toast.success('Объявление создано и сохранено как черновик');
       router.push('/host/listings');
     } catch (error) {

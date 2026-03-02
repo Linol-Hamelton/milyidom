@@ -1,7 +1,10 @@
 import {
   Controller,
+  Delete,
   Get,
+  HttpCode,
   Patch,
+  Post,
   Body,
   UseGuards,
   Param,
@@ -10,6 +13,7 @@ import {
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
+import { UpdateNotificationPrefsDto } from './dto/update-notification-prefs.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
@@ -51,6 +55,21 @@ export class UsersController {
     return this.usersService.getUserStats(user.id);
   }
 
+  /** GDPR: export all personal data */
+  @Get('me/export')
+  @UseGuards(JwtAuthGuard)
+  exportMyData(@CurrentUser() user: CurrentUserType) {
+    return this.usersService.exportMyData(user.id);
+  }
+
+  /** GDPR: anonymize and delete account */
+  @Delete('me')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(200)
+  deleteMe(@CurrentUser() user: CurrentUserType) {
+    return this.usersService.deleteMe(user.id);
+  }
+
   @Get('top-hosts')
   getTopHosts(@Query('limit') limit?: number) {
     return this.usersService.getTopHosts(limit);
@@ -68,5 +87,30 @@ export class UsersController {
   @Roles(Role.ADMIN)
   promoteToSuperhost(@Param('id') id: string) {
     return this.usersService.promoteToSuperhost(id);
+  }
+
+  @Get('me/notification-prefs')
+  @UseGuards(JwtAuthGuard)
+  getNotificationPrefs(@CurrentUser() user: CurrentUserType) {
+    return this.usersService.getNotificationPrefs(user.id);
+  }
+
+  @Patch('me/notification-prefs')
+  @UseGuards(JwtAuthGuard)
+  updateNotificationPrefs(
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: UpdateNotificationPrefsDto,
+  ) {
+    return this.usersService.updateNotificationPrefs(user.id, dto);
+  }
+
+  @Post('me/push-token')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(200)
+  registerPushToken(
+    @CurrentUser() user: CurrentUserType,
+    @Body('token') token: string,
+  ) {
+    return this.usersService.registerPushToken(user.id, token);
   }
 }

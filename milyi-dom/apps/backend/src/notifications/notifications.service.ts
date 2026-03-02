@@ -6,6 +6,7 @@ import {
 import type { Prisma } from '@prisma/client';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AppGateway } from '../gateway/app.gateway';
 
 type NotificationTemplate = { title: string; body: string };
 
@@ -34,7 +35,10 @@ const DEFAULT_TEMPLATES: Record<NotificationType, NotificationTemplate> = {
 
 @Injectable()
 export class NotificationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gateway: AppGateway,
+  ) {}
 
   async findAll(userId: string, page = 1, limit = 20) {
     const skip = (page - 1) * limit;
@@ -116,7 +120,7 @@ export class NotificationsService {
   }) {
     const normalizedData = this.normalizeJson(data.data);
 
-    return this.prisma.notification.create({
+    const notification = await this.prisma.notification.create({
       data: {
         userId: data.userId,
         type: data.type,
@@ -125,6 +129,16 @@ export class NotificationsService {
         data: normalizedData,
       },
     });
+
+    // Push real-time notification to user's WebSocket room (if online)
+    this.gateway.pushNotification(data.userId, {
+      type: data.type,
+      title: data.title,
+      body: data.body,
+      data: data.data as Record<string, unknown> | undefined,
+    });
+
+    return notification;
   }
 
   private normalizeJson(

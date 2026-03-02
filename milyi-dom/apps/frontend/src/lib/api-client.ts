@@ -109,7 +109,7 @@ export type ApiError = {
   details?: unknown;
 };
 
-const FALLBACK_ERROR_MESSAGE = 'Something went wrong. Please try again later.';
+const FALLBACK_ERROR_MESSAGE = 'Что-то пошло не так. Попробуйте ещё раз позже.';
 
 export const parseError = (error: unknown): ApiError => {
   if (axios.isAxiosError(error)) {

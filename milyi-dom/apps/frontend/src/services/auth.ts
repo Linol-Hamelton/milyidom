@@ -47,3 +47,12 @@ export async function changePassword(currentPassword: string, newPassword: strin
   const { data } = await api.patch('/auth/change-password', { currentPassword, newPassword });
   return data;
 }
+
+export async function verifyEmail(token: string): Promise<{ message: string }> {
+  const { data } = await api.post<{ message: string }>('/auth/verify-email', { token });
+  return data;
+}
+
+export async function resendVerification(): Promise<void> {
+  await api.post('/auth/resend-verification');
+}

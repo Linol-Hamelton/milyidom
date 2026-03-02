@@ -1,114 +1,117 @@
-﻿"use client";
+"use client";
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
-import { RequireAuth } from '../../components/ui/require-auth';
-import { Button } from '../../components/ui/button';
+import {
+  UsersIcon,
+  HomeIcon,
+  CalendarDaysIcon,
+  CurrencyRupeeIcon,
+  UserPlusIcon,
+  ClipboardDocumentListIcon,
+  ShieldCheckIcon,
+  ChartBarIcon,
+  ChatBubbleLeftRightIcon,
+} from '@heroicons/react/24/outline';
 import { Skeleton } from '../../components/ui/skeleton';
-import { fetchTopHosts, verifyUser, promoteSuperhost } from '../../services/users';
-import type { User } from '../../types/api';
+import { fetchPlatformStats } from '../../services/admin';
 import { parseError } from '../../lib/api-client';
+import type { PlatformStats } from '../../types/api';
 
-export default function AdminPage() {
-  const [hosts, setHosts] = useState<User[]>([]);
+interface KpiCard {
+  label: string;
+  value: string | number;
+  icon: React.ElementType;
+  color: string;
+}
+
+export default function AdminDashboard() {
+  const [stats, setStats] = useState<PlatformStats | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadHosts = async () => {
-    setLoading(true);
-    try {
-      const data = await fetchTopHosts(20);
-      setHosts(data);
-    } catch (error) {
-      const { message } = parseError(error);
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    loadHosts();
+    fetchPlatformStats()
+      .then(setStats)
+      .catch((err) => toast.error(parseError(err).message))
+      .finally(() => setLoading(false));
   }, []);
 
-  const handleVerify = async (userId: string) => {
-    try {
-      await verifyUser(userId);
-      toast.success('User verified successfully.');
-      await loadHosts();
-    } catch (error) {
-      const { message } = parseError(error);
-      toast.error(message);
-    }
-  };
+  const kpis: KpiCard[] = stats
+    ? [
+        { label: 'Всего пользователей', value: stats.totalUsers.toLocaleString(), icon: UsersIcon, color: 'text-blue-600 bg-blue-50' },
+        { label: 'Активных объявлений', value: stats.totalListings.toLocaleString(), icon: HomeIcon, color: 'text-pine-600 bg-pine-50' },
+        { label: 'Всего бронирований', value: stats.totalBookings.toLocaleString(), icon: CalendarDaysIcon, color: 'text-amber-600 bg-amber-50' },
+        { label: 'Новых пользователей (30д)', value: stats.newUsers30d.toLocaleString(), icon: UserPlusIcon, color: 'text-purple-600 bg-purple-50' },
+        {
+          label: 'Оборот (30д)',
+          value: new Intl.NumberFormat('ru-RU', { style: 'currency', currency: 'RUB', maximumFractionDigits: 0 }).format(stats.gmv30d),
+          icon: CurrencyRupeeIcon,
+          color: 'text-emerald-600 bg-emerald-50',
+        },
+      ]
+    : [];
 
-  const handlePromote = async (userId: string) => {
-    try {
-      await promoteSuperhost(userId);
-      toast.success('Host promoted to Superhost.');
-      await loadHosts();
-    } catch (error) {
-      const { message } = parseError(error);
-      toast.error(message);
-    }
-  };
+  const quickLinks = [
+    { href: '/admin/users', label: 'Пользователи', icon: UsersIcon, desc: 'Просмотр, блокировка и управление ролями' },
+    { href: '/admin/listings', label: 'Модерация объявлений', icon: ClipboardDocumentListIcon, desc: 'Публикация, снятие с публикации, черновики' },
+    { href: '/admin/analytics', label: 'Аналитика', icon: ChartBarIcon, desc: 'Ключевые показатели платформы и графики доходов' },
+    { href: '/admin/reviews', label: 'Модерация отзывов', icon: ChatBubbleLeftRightIcon, desc: 'Скрытие и удаление нарушающих правила отзывов' },
+    { href: '/admin/audit-log', label: 'Журнал действий', icon: ShieldCheckIcon, desc: 'Полная история административных действий' },
+  ];
 
   return (
-    <RequireAuth roles={['ADMIN']}>
-      <div className="bg-sand-50 py-12">
-        <div className="mx-auto max-w-content-xl px-6 lg:px-10">
-          <header className="space-y-2">
-            <p className="text-sm uppercase tracking-wide text-pine-600">Admin console</p>
-            <h1 className="text-3xl font-serif text-slate-900">Host moderation</h1>
-            <p className="text-sm text-slate-600">
-              Review top performing hosts, approve verification requests and grant Superhost status.
-            </p>
-          </header>
+    <div className="p-8">
+      <header className="mb-8">
+        <p className="text-xs font-semibold uppercase tracking-widest text-slate-400">Администратор</p>
+        <h1 className="mt-1 text-2xl font-serif font-semibold text-slate-900">Главная</h1>
+      </header>
 
-          {loading ? (
-            <div className="mt-10 space-y-4">
-              {Array.from({ length: 6 }).map((_, index) => (
-                <Skeleton key={index} className="h-24 rounded-3xl" />
-              ))}
-            </div>
-          ) : hosts.length === 0 ? (
-            <div className="mt-12 rounded-3xl border border-dashed border-pine-200 bg-white p-10 text-center">
-              <h2 className="text-lg font-semibold text-slate-900">No hosts awaiting review</h2>
-              <p className="mt-2 text-sm text-slate-500">All active hosts have already been reviewed.</p>
-            </div>
-          ) : (
-            <div className="mt-10 space-y-4">
-              {hosts.map((host) => (
-                <article
-                  key={host.id}
-                  className="flex flex-wrap items-center justify-between gap-4 rounded-3xl bg-white p-6 shadow-soft"
-                >
-                  <div>
-                    <p className="text-base font-semibold text-slate-900">{host.profile?.firstName ?? host.email}</p>
-                    <p className="text-xs text-slate-500">
-                      {host.email} | Languages: {host.profile?.languages?.join(', ') ?? 'not provided'}
-                    </p>
-                    <p className="mt-1 text-xs text-slate-400">
-                      Verified: {host.isVerified ? 'yes' : 'no'} | Superhost: {host.isSuperhost ? 'yes' : 'no'}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    {!host.isVerified && (
-                      <Button variant="ghost" onClick={() => handleVerify(host.id)}>
-                        Approve verification
-                      </Button>
-                    )}
-                    {!host.isSuperhost && (
-                      <Button variant="ghost" onClick={() => handlePromote(host.id)}>
-                        Promote to Superhost
-                      </Button>
-                    )}
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
+      {/* KPI Cards */}
+      <section className="mb-10">
+        <h2 className="mb-4 text-sm font-semibold text-slate-500 uppercase tracking-wide">Обзор платформы</h2>
+        {loading ? (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-28 rounded-2xl" />
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-5">
+            {kpis.map(({ label, value, icon: Icon, color }) => (
+              <div key={label} className="rounded-2xl bg-white p-5 shadow-soft">
+                <div className={`mb-3 inline-flex h-9 w-9 items-center justify-center rounded-xl ${color}`}>
+                  <Icon className="h-5 w-5" />
+                </div>
+                <p className="text-xl font-bold text-slate-900">{value}</p>
+                <p className="mt-0.5 text-xs text-slate-500">{label}</p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* Quick links */}
+      <section>
+        <h2 className="mb-4 text-sm font-semibold text-slate-500 uppercase tracking-wide">Быстрые действия</h2>
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {quickLinks.map(({ href, label, icon: Icon, desc }) => (
+            <Link
+              key={href}
+              href={href}
+              className="flex items-start gap-4 rounded-2xl bg-white p-5 shadow-soft transition-shadow hover:shadow-md"
+            >
+              <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-pine-50 text-pine-700">
+                <Icon className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="font-semibold text-slate-900">{label}</p>
+                <p className="mt-0.5 text-sm text-slate-500">{desc}</p>
+              </div>
+            </Link>
+          ))}
         </div>
-      </div>
-    </RequireAuth>
+      </section>
+    </div>
   );
 }

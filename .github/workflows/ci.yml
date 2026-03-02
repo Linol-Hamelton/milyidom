@@ -1,0 +1,124 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22'
+  PNPM_VERSION: '10'
+
+jobs:
+  # ─────────────────────────────────────────────────────────
+  # Backend: lint → type-check → test → build
+  # ─────────────────────────────────────────────────────────
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: milyi-dom/apps/backend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: milyi-dom/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: milyi-dom
+
+      - name: Generate Prisma client
+        run: pnpm prisma:generate
+
+      - name: Lint
+        run: pnpm lint --max-warnings 0
+
+      - name: Type check
+        run: npx tsc --noEmit --skipLibCheck
+
+      - name: Unit tests
+        run: pnpm test --passWithNoTests --forceExit
+        env:
+          NODE_ENV: test
+
+      - name: Build
+        run: pnpm build
+        env:
+          DATABASE_URL: postgresql://placeholder:placeholder@localhost:5432/placeholder
+
+  # ─────────────────────────────────────────────────────────
+  # Frontend: lint → type-check → test → build
+  # ─────────────────────────────────────────────────────────
+  frontend:
+    name: Frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: milyi-dom/apps/frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: milyi-dom/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: milyi-dom
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type check
+        run: pnpm type-check
+
+      - name: Unit tests
+        run: pnpm test --run --passWithNoTests
+        env:
+          NODE_ENV: test
+
+      - name: Build
+        run: pnpm build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:4001/api
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+          NEXT_PUBLIC_FALLBACK_IMAGE_URL: /images/listing-1.jpg
+
+  # ─────────────────────────────────────────────────────────
+  # Summary gate: both jobs must pass
+  # ─────────────────────────────────────────────────────────
+  ci-pass:
+    name: CI passed
+    needs: [backend, frontend]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - name: Check all jobs
+        run: |
+          if [[ "${{ needs.backend.result }}" != "success" || "${{ needs.frontend.result }}" != "success" ]]; then
+            echo "CI failed"
+            exit 1
+          fi
+          echo "All checks passed!"

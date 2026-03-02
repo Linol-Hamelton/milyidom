@@ -1,0 +1,16 @@
+{
+  "name": "milyi-dom-workspace",
+  "private": true,
+  "version": "0.0.0",
+  "scripts": {
+    "dev:backend": "pnpm --filter=backend dev",
+    "dev:frontend": "pnpm --filter=frontend dev",
+    "build:backend": "pnpm --filter=backend build",
+    "build:frontend": "pnpm --filter=frontend build",
+    "lint": "pnpm --filter=backend lint && pnpm --filter=frontend lint",
+    "type-check": "pnpm --filter=backend exec tsc --noEmit --skipLibCheck && pnpm --filter=frontend exec tsc --noEmit --skipLibCheck",
+    "prisma:generate": "pnpm --filter=backend exec prisma generate",
+    "prisma:migrate": "pnpm --filter=backend exec prisma migrate dev",
+    "prisma:deploy": "pnpm --filter=backend exec prisma migrate deploy"
+  }
+}

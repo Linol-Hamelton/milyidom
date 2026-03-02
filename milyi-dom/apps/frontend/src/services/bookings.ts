@@ -28,20 +28,25 @@ export async function createBooking(payload: {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
       if (status === 400) {
-        throw new Error("Booking request is invalid. Please review the form and try again.");
+        throw new Error("Некорректный запрос. Проверьте форму и попробуйте снова.");
       }
       if (status === 403) {
-        throw new Error("You do not have permission to create this booking.");
+        throw new Error("У вас нет прав для создания этого бронирования.");
       }
       if (status === 409) {
-        throw new Error("The selected dates are no longer available.");
+        throw new Error("Выбранные даты больше недоступны.");
       }
       if (status === 500) {
-        throw new Error("Booking service temporarily unavailable. Please try again later.");
+        throw new Error("Сервис бронирования временно недоступен. Попробуйте позже.");
       }
     }
-    throw new Error("We could not place your booking. Please try again in a moment.");
+    throw new Error("Не удалось создать бронирование. Попробуйте ещё раз.");
   }
+}
+
+export async function fetchBooking(id: string) {
+  const { data } = await api.get<Booking>(`/bookings/${id}`);
+  return data;
 }
 
 export async function fetchGuestBookings(params?: { page?: number; limit?: number }) {
@@ -91,13 +96,13 @@ export async function cancelBooking(id: string) {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
       if (status === 403) {
-        throw new Error("You cannot cancel this booking.");
+        throw new Error("Вы не можете отменить это бронирование.");
       }
       if (status === 404) {
-        throw new Error("Booking not found.");
+        throw new Error("Бронирование не найдено.");
       }
     }
-    throw new Error("Failed to cancel the booking. Please try again.");
+    throw new Error("Не удалось отменить бронирование. Попробуйте ещё раз.");
   }
 }
 
@@ -113,12 +118,12 @@ export async function updateBookingStatus(
     if (axios.isAxiosError(error)) {
       const statusCode = error.response?.status;
       if (statusCode === 403) {
-        throw new Error("You do not have permission to update this booking status.");
+        throw new Error("У вас нет прав для изменения статуса этого бронирования.");
       }
       if (statusCode === 404) {
-        throw new Error("Booking not found.");
+        throw new Error("Бронирование не найдено.");
       }
     }
-    throw new Error("Failed to update the booking status. Please try again.");
+    throw new Error("Не удалось обновить статус бронирования. Попробуйте ещё раз.");
   }
 }

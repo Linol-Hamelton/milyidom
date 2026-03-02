@@ -1,0 +1,32 @@
+version: 2
+updates:
+  # GitHub Actions
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    labels: [dependencies, github-actions]
+
+  # Backend (pnpm workspace)
+  - package-ecosystem: npm
+    directory: /milyi-dom/apps/backend
+    schedule:
+      interval: weekly
+    labels: [dependencies, backend]
+    groups:
+      nestjs:
+        patterns: ["@nestjs/*"]
+      prisma:
+        patterns: ["prisma", "@prisma/*"]
+
+  # Frontend (pnpm workspace)
+  - package-ecosystem: npm
+    directory: /milyi-dom/apps/frontend
+    schedule:
+      interval: weekly
+    labels: [dependencies, frontend]
+    groups:
+      react:
+        patterns: ["react", "react-*", "@types/react*"]
+      next:
+        patterns: ["next", "eslint-config-next"]

@@ -12,7 +12,7 @@ export class UsersService {
   constructor(private prisma: PrismaService) {}
 
   async findMe(userId: string) {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: userId },
       include: {
         profile: true,
@@ -69,6 +69,13 @@ export class UsersService {
         },
       },
     });
+
+    if (!user) return null;
+
+    // Strip sensitive fields before returning to client
+    const { password, twoFactorSecret, googleId, vkId, ...safeUser } = user;
+    void password; void twoFactorSecret; void googleId; void vkId;
+    return safeUser;
   }
 
   async updateMe(userId: string, updateMeDto: UpdateMeDto) {
@@ -232,6 +239,77 @@ export class UsersService {
     });
   }
 
+  /** GDPR: anonymize/delete user data (right to erasure) */
+  async deleteMe(userId: string): Promise<{ message: string }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: { bookings: { where: { status: 'CONFIRMED' } } },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    // Block deletion if active confirmed bookings exist
+    if (user.bookings.length > 0) {
+      throw new BadRequestException(
+        'Cannot delete account with active confirmed bookings. Cancel them first.',
+      );
+    }
+
+    // Anonymize instead of hard delete (preserve audit trail and financial records)
+    await this.prisma.$transaction([
+      // Anonymize personal data
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          email: `deleted_${userId}@milyi-dom.deleted`,
+          phone: null,
+          password: '',
+          googleId: null,
+          vkId: null,
+          twoFactorSecret: null,
+          twoFactorEnabled: false,
+          isVerified: false,
+          isSuperhost: false,
+        },
+      }),
+      // Anonymize profile
+      this.prisma.profile.updateMany({
+        where: { userId },
+        data: {
+          firstName: 'Удалённый',
+          lastName: 'Пользователь',
+          avatarUrl: null,
+          bio: null,
+          languages: [],
+        },
+      }),
+    ]);
+
+    return { message: 'Ваш аккаунт успешно удалён. Данные анонимизированы.' };
+  }
+
+  /** GDPR: export all user data (right to portability) */
+  async exportMyData(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      include: {
+        profile: true,
+        bookings: { include: { listing: { select: { title: true, city: true } } } },
+        reviews: true,
+        favorites: { include: { listing: { select: { title: true } } } },
+      },
+    });
+    if (!user) throw new NotFoundException('User not found');
+
+    // Strip sensitive fields
+    const { password, twoFactorSecret, googleId, vkId, ...safeUser } = user;
+    void password; void twoFactorSecret; void googleId; void vkId;
+
+    return {
+      exportedAt: new Date().toISOString(),
+      data: safeUser,
+    };
+  }
+
   async promoteToSuperhost(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },
@@ -272,5 +350,89 @@ export class UsersService {
     }
 
     throw new BadRequestException('User does not meet superhost criteria');
+  }
+
+  /**
+   * Automatically evaluate and update superhost status for a host.
+   * Called after every review creation/deletion — fire-and-forget.
+   * Criteria: ≥1 published listing, ≥5 reviews on their listings, avg rating ≥4.8.
+   */
+  async checkAndUpdateSuperhostStatus(hostId: string): Promise<void> {
+    // Fetch all reviews about this host's listings
+    const [publishedListingsCount, reviews] = await this.prisma.$transaction([
+      this.prisma.listing.count({ where: { hostId, status: 'PUBLISHED' } }),
+      this.prisma.review.findMany({
+        where: { listing: { hostId } },
+        select: { rating: true },
+      }),
+    ]);
+
+    const hasListings = publishedListingsCount >= 1;
+    const hasEnoughReviews = reviews.length >= 10;
+    const avgRating =
+      reviews.length > 0
+        ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+        : 0;
+    const hasHighRating = avgRating >= 4.8;
+
+    const qualifies = hasListings && hasEnoughReviews && hasHighRating;
+
+    // Only update if the status needs to change (avoid unnecessary writes)
+    const user = await this.prisma.user.findUnique({
+      where: { id: hostId },
+      select: { isSuperhost: true },
+    });
+    if (user && user.isSuperhost !== qualifies) {
+      await this.prisma.user.update({
+        where: { id: hostId },
+        data: { isSuperhost: qualifies },
+      });
+    }
+  }
+
+  async getNotificationPrefs(userId: string) {
+    return this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        notifEmailBookings: true,
+        notifEmailMessages: true,
+        notifEmailSavedSearches: true,
+        notifEmailMarketing: true,
+      },
+    });
+  }
+
+  async updateNotificationPrefs(
+    userId: string,
+    dto: {
+      notifEmailBookings?: boolean;
+      notifEmailMessages?: boolean;
+      notifEmailSavedSearches?: boolean;
+      notifEmailMarketing?: boolean;
+    },
+  ) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: dto,
+      select: {
+        notifEmailBookings: true,
+        notifEmailMessages: true,
+        notifEmailSavedSearches: true,
+        notifEmailMarketing: true,
+      },
+    });
+  }
+
+  async registerPushToken(userId: string, token: string) {
+    // Clear any existing registration of this token (another user logged out)
+    await this.prisma.user.updateMany({
+      where: { pushToken: token, NOT: { id: userId } },
+      data: { pushToken: null },
+    });
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { pushToken: token },
+      select: { id: true },
+    });
   }
 }

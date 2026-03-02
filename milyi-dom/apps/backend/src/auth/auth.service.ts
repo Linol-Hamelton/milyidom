@@ -8,6 +8,7 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { EmailQueueService } from '../queue/email-queue.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { hash, compare } from 'bcrypt';
@@ -18,7 +19,7 @@ type PrismaUserWithProfile = Prisma.UserGetPayload<{
   include: { profile: true };
 }>;
 
-type AuthResult = {
+export type AuthResult = {
   user: CurrentUser;
   accessToken: string;
   refreshToken: string;
@@ -30,6 +31,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailQueueService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResult> {
@@ -40,7 +42,7 @@ export class AuthService {
     });
 
     if (existingUser) {
-      throw new ConflictException('User with this email already exists');
+      throw new ConflictException('Пользователь с таким email уже зарегистрирован');
     }
 
     if (phone) {
@@ -50,7 +52,7 @@ export class AuthService {
 
       if (existingPhone) {
         throw new ConflictException(
-          'User with this phone number already exists',
+          'Пользователь с таким номером телефона уже зарегистрирован',
         );
       }
     }
@@ -77,6 +79,11 @@ export class AuthService {
     const safeUser = this.sanitizeUser(user);
     const tokens = await this.generateTokens(safeUser);
 
+    // Send welcome email (fire-and-forget — never block registration)
+    void this.emailService.sendWelcome(email, firstName);
+    // Send email verification link
+    void this.sendVerificationEmail(user.id, email);
+
     return {
       user: safeUser,
       ...tokens,
@@ -94,12 +101,12 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Неверный email или пароль');
     }
 
     const isPasswordValid = await compare(password, user.password);
     if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException('Неверный email или пароль');
     }
 
     await this.prisma.user.update({
@@ -134,7 +141,7 @@ export class AuthService {
       });
 
       if (!user) {
-        throw new UnauthorizedException('User not found');
+        throw new UnauthorizedException('Пользователь не найден');
       }
 
       const safeUser = this.sanitizeUser(user);
@@ -145,7 +152,7 @@ export class AuthService {
         ...tokens,
       };
     } catch {
-      throw new UnauthorizedException('Invalid refresh token');
+      throw new UnauthorizedException('Сессия истекла. Пожалуйста, войдите снова.');
     }
   }
 
@@ -161,33 +168,28 @@ export class AuthService {
       throw new UnauthorizedException('User not found');
     }
 
+    if (user.blockedAt) {
+      throw new UnauthorizedException('Ваш аккаунт заблокирован. Обратитесь в поддержку.');
+    }
+
     return this.sanitizeUser(user);
   }
 
-  async requestPasswordReset(email: string) {
-    const user = await this.prisma.user.findUnique({
-      where: { email },
-    });
-
-    if (!user) {
-      return { message: 'If the email exists, a reset link has been sent' };
-    }
-
-    void this.jwtService.sign(
-      { sub: user.id, type: 'password_reset' },
+  async sendVerificationEmail(userId: string, email: string): Promise<void> {
+    const token = this.jwtService.sign(
+      { sub: userId, type: 'email_verify' },
       {
-        expiresIn: '1h',
+        expiresIn: '24h',
         secret: this.configService.get<string>(
           'jwt.secret',
           process.env.JWT_SECRET ?? 'change-me',
         ),
       },
     );
-
-    return { message: 'If the email exists, a reset link has been sent' };
+    void this.emailService.sendEmailVerification(email, token);
   }
 
-  async resetPassword(token: string, newPassword: string) {
+  async verifyEmail(token: string): Promise<{ message: string }> {
     try {
       const payload = this.jwtService.verify<{ sub: string; type?: string }>(
         token,
@@ -199,20 +201,80 @@ export class AuthService {
         },
       );
 
+      if (payload.type !== 'email_verify') {
+        throw new BadRequestException('Недействительный токен подтверждения');
+      }
+
+      await this.prisma.user.update({
+        where: { id: payload.sub },
+        data: { isVerified: true },
+      });
+
+      return { message: 'Email успешно подтверждён' };
+    } catch {
+      throw new BadRequestException('Ссылка недействительна или её срок истёк');
+    }
+  }
+
+  async requestPasswordReset(email: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { email },
+    });
+
+    if (!user) {
+      // Always return the same message to prevent email enumeration
+      return { message: 'Если такой email зарегистрирован, ссылка для сброса пароля отправлена на него' };
+    }
+
+    const token = this.jwtService.sign(
+      { sub: user.id, type: 'password_reset' },
+      {
+        expiresIn: '1h',
+        secret: this.configService.get<string>('jwt.secret')!,
+      },
+    );
+
+    // Send the reset link via email (fire-and-forget)
+    void this.emailService.sendPasswordReset(email, token);
+
+    return { message: 'Если такой email зарегистрирован, ссылка для сброса пароля отправлена на него' };
+  }
+
+  async resetPassword(token: string, newPassword: string) {
+    try {
+      const payload = this.jwtService.verify<{ sub: string; type?: string; iat?: number }>(
+        token,
+        {
+          secret: this.configService.get<string>('jwt.secret')!,
+        },
+      );
+
       if (payload.type !== 'password_reset') {
-        throw new BadRequestException('Invalid token');
+        throw new BadRequestException('Недействительный токен сброса пароля');
+      }
+
+      // Single-use enforcement: reject token if password was already reset after it was issued
+      const user = await this.prisma.user.findUnique({
+        where: { id: payload.sub },
+        select: { passwordChangedAt: true },
+      });
+      if (user?.passwordChangedAt && payload.iat) {
+        const changedAtSec = Math.floor(user.passwordChangedAt.getTime() / 1000);
+        if (payload.iat < changedAtSec) {
+          throw new BadRequestException('Ссылка для сброса пароля недействительна или истекла');
+        }
       }
 
       const hashedPassword = await hash(newPassword, 12);
 
       await this.prisma.user.update({
         where: { id: payload.sub },
-        data: { password: hashedPassword },
+        data: { password: hashedPassword, passwordChangedAt: new Date() },
       });
 
-      return { message: 'Password reset successfully' };
+      return { message: 'Пароль успешно изменён' };
     } catch {
-      throw new BadRequestException('Invalid or expired token');
+      throw new BadRequestException('Ссылка для сброса пароля недействительна или истекла');
     }
   }
 
@@ -226,7 +288,7 @@ export class AuthService {
     });
 
     if (!user) {
-      throw new UnauthorizedException('User not found');
+      throw new UnauthorizedException('Пользователь не найден');
     }
 
     const isCurrentPasswordValid = await compare(
@@ -234,17 +296,81 @@ export class AuthService {
       user.password,
     );
     if (!isCurrentPasswordValid) {
-      throw new BadRequestException('Current password is incorrect');
+      throw new BadRequestException('Текущий пароль указан неверно');
     }
 
     const hashedPassword = await hash(newPassword, 12);
 
     await this.prisma.user.update({
       where: { id: userId },
-      data: { password: hashedPassword },
+      data: { password: hashedPassword, passwordChangedAt: new Date() },
     });
 
-    return { message: 'Password changed successfully' };
+    return { message: 'Пароль успешно изменён' };
+  }
+
+  /**
+   * Find or create a user via OAuth (Google, VK).
+   * Returns tokens ready for the frontend redirect.
+   */
+  async findOrCreateOAuthUser(opts: {
+    provider: 'google' | 'vk';
+    providerId: string;
+    email: string;
+    firstName: string;
+    lastName: string;
+    avatarUrl?: string;
+  }): Promise<AuthResult> {
+    const providerField = opts.provider === 'google' ? 'googleId' : 'vkId';
+
+    // Try to find by provider ID first, then by email
+    let user = await this.prisma.user.findFirst({
+      where: { [providerField]: opts.providerId },
+      include: { profile: true },
+    });
+
+    if (!user) {
+      // Check if email already exists (link provider to existing account)
+      const existing = await this.prisma.user.findUnique({
+        where: { email: opts.email },
+        include: { profile: true },
+      });
+
+      if (existing) {
+        // Link OAuth provider to existing account
+        user = await this.prisma.user.update({
+          where: { id: existing.id },
+          data: { [providerField]: opts.providerId, isVerified: true },
+          include: { profile: true },
+        });
+      } else {
+        // Create new OAuth user (no password)
+        user = await this.prisma.user.create({
+          data: {
+            email: opts.email,
+            password: '', // OAuth-only account — password field left empty
+            isVerified: true,
+            [providerField]: opts.providerId,
+            profile: {
+              create: {
+                firstName: opts.firstName,
+                lastName: opts.lastName,
+                avatarUrl: opts.avatarUrl,
+              },
+            },
+          },
+          include: { profile: true },
+        });
+
+        // Send welcome email for new OAuth users
+        void this.emailService.sendWelcome(opts.email, opts.firstName);
+      }
+    }
+
+    const safeUser = this.sanitizeUser(user);
+    const tokens = await this.generateTokens(safeUser);
+
+    return { user: safeUser, ...tokens };
   }
 
   private sanitizeUser(user: PrismaUserWithProfile): CurrentUser {

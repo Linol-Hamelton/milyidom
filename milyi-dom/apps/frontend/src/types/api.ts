@@ -18,7 +18,43 @@ export interface User {
   role: Role;
   isVerified: boolean;
   isSuperhost: boolean;
+  twoFactorEnabled?: boolean;
+  blockedAt?: string | null;
+  createdAt?: string;
   profile?: Profile | null;
+  _count?: { listings: number; bookings: number };
+}
+
+export type AuditAction =
+  | 'USER_LOGIN' | 'USER_LOGOUT' | 'USER_REGISTER'
+  | 'PASSWORD_CHANGE' | 'PASSWORD_RESET_REQUEST' | 'PASSWORD_RESET'
+  | 'BOOKING_CREATE' | 'BOOKING_CANCEL' | 'BOOKING_STATUS_CHANGE'
+  | 'LISTING_CREATE' | 'LISTING_UPDATE' | 'LISTING_DELETE'
+  | 'LISTING_STATUS_CHANGE' | 'PROFILE_UPDATE' | 'PAYMENT_INITIATE'
+  | 'PAYMENT_COMPLETE' | 'PAYMENT_FAIL' | 'REVIEW_CREATE' | 'REVIEW_DELETE'
+  | 'ADMIN_USER_ROLE_CHANGE' | 'ADMIN_USER_BLOCK' | 'ADMIN_BOOKING_OVERRIDE'
+  | 'ADMIN_LISTING_MODERATE';
+
+export interface AuditLog {
+  id: string;
+  userId?: string | null;
+  userEmail?: string | null;
+  userRole?: string | null;
+  action: AuditAction;
+  resourceType?: string | null;
+  resourceId?: string | null;
+  metadata?: Record<string, unknown> | null;
+  success: boolean;
+  errorMessage?: string | null;
+  createdAt: string;
+}
+
+export interface PlatformStats {
+  totalUsers: number;
+  totalListings: number;
+  totalBookings: number;
+  newUsers30d: number;
+  gmv30d: number;
 }
 
 export interface Amenity {
@@ -74,6 +110,7 @@ export interface Listing {
   images: PropertyImage[];
   amenities: { amenity: Amenity }[];
   favorites?: Favorite[];
+  icalToken?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -130,6 +167,9 @@ export interface Review {
   createdAt: string;
   isPublic?: boolean;
   isFeatured?: boolean;
+  isHidden?: boolean;
+  hostReply?: string | null;
+  hostRepliedAt?: string | null;
 }
 
 export interface ReviewStats {

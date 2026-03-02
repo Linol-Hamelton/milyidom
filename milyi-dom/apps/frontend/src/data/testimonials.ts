@@ -1,28 +1,28 @@
-﻿import type { Testimonial } from '../types';
+import type { Testimonial } from '../types';
 
 export const testimonials: Testimonial[] = [
   {
     id: '1',
-    name: 'Alina and Kirill',
-    role: 'Family with children',
+    name: 'Алина и Кирилл',
+    role: 'Семья с детьми',
     quote:
-      'We have been traveling with Milyi Dom for two seasons — the team always finds warm, well-equipped apartments. The kids loved the welcome kit and board games.',
+      'Второй сезон путешествуем с Милым Домом — всегда тёплые, хорошо оснащённые квартиры. Дети были в восторге от приветственного набора и настольных игр.',
     avatar: 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1',
   },
   {
     id: '2',
-    name: 'Natalia',
-    role: 'Host in Sochi',
+    name: 'Наталья',
+    role: 'Хост из Сочи',
     quote:
-      'The experts helped raise occupancy to almost 90%. Now I rely on a clear booking calendar and transparent performance reports each month.',
+      'С помощью платформы загрузка выросла почти до 90%. Теперь я вижу все бронирования в одном календаре и получаю прозрачную аналитику каждый месяц.',
     avatar: 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518',
   },
   {
     id: '3',
-    name: 'Andrey',
-    role: 'Investor from Moscow',
+    name: 'Андрей',
+    role: 'Инвестор из Москвы',
     quote:
-      'I entrusted my apartment to Milyi Dom management: I appreciate the guest experience focus, attentive support, and detailed monthly statements.',
+      'Доверил квартиру управлению Милого Дома: ценю внимание к гостям, отзывчивую поддержку и детальные ежемесячные отчёты.',
     avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e',
   },
 ];

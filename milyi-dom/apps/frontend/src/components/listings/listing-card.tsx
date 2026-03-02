@@ -9,16 +9,18 @@ const backendImagesBase = (
 
 import Image from 'next/image';
 import Link from 'next/link';
+import { motion } from 'framer-motion';
 import type { Listing } from '../../types/api';
 import { formatCurrency } from '../../lib/format';
+import { listingBlurDataURL } from '../../lib/image-placeholder';
 import { FavoriteToggle } from './favorite-toggle';
 
 const propertyTypeLabels: Record<string, string> = {
-  apartment: 'Apartment',
-  loft: 'Loft',
-  house: 'House',
-  villa: 'Villa',
-  studio: 'Studio',
+  apartment: 'Квартира',
+  loft: 'Лофт',
+  house: 'Дом',
+  villa: 'Вилла',
+  studio: 'Студия',
 };
 
 interface ListingCardProps {
@@ -49,6 +51,13 @@ export function ListingCard({ listing, href }: ListingCardProps) {
   const propertyLabel = propertyTypeLabels[listing.propertyType] ?? listing.propertyType;
 
   return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true, margin: '-60px' }}
+      transition={{ duration: 0.4, ease: 'easeOut' }}
+      whileHover={{ y: -4 }}
+    >
     <Link href={linkHref} className="group cursor-pointer">
       <div className="space-y-2">
         <div className="relative aspect-square overflow-hidden rounded-xl">
@@ -59,6 +68,8 @@ export function ListingCard({ listing, href }: ListingCardProps) {
             sizes="(min-width: 1280px) 20vw, (min-width: 1024px) 25vw, (min-width: 768px) 33vw, 100vw"
             className="object-cover transition duration-300 group-hover:scale-105"
             loading="lazy"
+            placeholder="blur"
+            blurDataURL={listingBlurDataURL}
           />
 
           <div className="absolute right-3 top-3 opacity-100 transition-opacity md:opacity-0 md:group-hover:opacity-100">
@@ -85,9 +96,15 @@ export function ListingCard({ listing, href }: ListingCardProps) {
 
           <p className="text-sm text-gray-500">{propertyLabel}</p>
 
+          {listing.host?.isSuperhost && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 ring-1 ring-amber-200">
+              ⭐ Суперхост
+            </span>
+          )}
+
           <p className="text-sm text-gray-500">
-            {new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} –
-            {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+            {new Date().toLocaleDateString('ru-RU', { month: 'short', day: 'numeric' })} –{' '}
+            {new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('ru-RU', {
               month: 'short',
               day: 'numeric',
             })}
@@ -97,11 +114,12 @@ export function ListingCard({ listing, href }: ListingCardProps) {
             <span className="font-medium text-gray-900">
               {formatCurrency(price, listing.currency)}
             </span>
-            <span className="text-sm text-gray-500">per night</span>
+            <span className="text-sm text-gray-500">/ ночь</span>
           </div>
         </div>
       </div>
     </Link>
+    </motion.div>
   );
 }
 

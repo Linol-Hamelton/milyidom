@@ -22,13 +22,13 @@ export async function createReview(payload: {
     if (axios.isAxiosError(error)) {
       const status = error.response?.status;
       if (status === 403) {
-        throw new Error("You can only review stays you have completed.");
+        throw new Error("Оставить отзыв можно только о завершённой поездке.");
       }
       if (status === 400) {
-        throw new Error("Review form is invalid. Please check the fields and try again.");
+        throw new Error("Форма отзыва заполнена некорректно. Проверьте данные и попробуйте снова.");
       }
     }
-    throw new Error("We could not submit your review. Please try again later.");
+    throw new Error("Не удалось отправить отзыв. Попробуйте ещё раз.");
   }
 }
 
@@ -141,6 +141,44 @@ export async function toggleFeaturedReview(reviewId: string, isFeatured: boolean
   } catch (error) {
     console.warn("Could not toggle featured review:", error);
     throw error;
+  }
+}
+
+export async function replyToReview(reviewId: string, reply: string): Promise<Review> {
+  const { data } = await api.patch<Review>(`/reviews/${reviewId}/reply`, { reply });
+  return data;
+}
+
+export async function deleteReplyToReview(reviewId: string): Promise<Review> {
+  const { data } = await api.delete<Review>(`/reviews/${reviewId}/reply`);
+  return data;
+}
+
+export async function adminFetchReviews(page = 1, limit = 20) {
+  const { data } = await api.get<{ items: Review[]; meta: { page: number; limit: number; total: number } }>(
+    `/reviews/admin/all?page=${page}&limit=${limit}`,
+  );
+  return data;
+}
+
+export async function adminHideReview(reviewId: string): Promise<Review> {
+  const { data } = await api.patch<Review>(`/reviews/${reviewId}/hide`, {});
+  return data;
+}
+
+export async function adminDeleteReview(reviewId: string): Promise<void> {
+  await api.delete(`/reviews/${reviewId}`);
+}
+
+export async function fetchReviewSummary(listingId: string): Promise<string> {
+  if (listingId.startsWith(OFFLINE_LISTING_PREFIX)) return '';
+  try {
+    const { data } = await api.get<{ summary: string; reviewCount: number }>(
+      `/reviews/listing/${listingId}/summary`,
+    );
+    return data.summary;
+  } catch {
+    return '';
   }
 }
 

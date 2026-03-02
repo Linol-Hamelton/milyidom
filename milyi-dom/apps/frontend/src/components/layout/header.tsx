@@ -15,6 +15,7 @@ const publicLinks = [
 
 const guestLinks = [
   { href: '/favorites', label: 'Избранное' },
+  { href: '/saved-searches', label: 'Сохранённые поиски' },
   { href: '/bookings', label: 'Мои бронирования' },
   { href: '/notifications', label: 'Уведомления' },
   { href: '/messages', label: 'Сообщения' },

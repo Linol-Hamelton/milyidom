@@ -82,11 +82,11 @@ export default function Testimonials() {
   return (
     <section className="mx-auto max-w-content-lg px-6 py-16 lg:px-10">
       <div className="flex flex-col gap-2">
-        <p className="text-sm uppercase tracking-wide text-pine-600">Testimonials</p>
-        <h2 className="mb-2 font-serif text-3xl text-slate-900 md:text-4xl">Guests trust Milyi Dom</h2>
+        <p className="text-sm uppercase tracking-wide text-pine-600">Отзывы гостей</p>
+        <h2 className="mb-2 font-serif text-3xl text-slate-900 md:text-4xl">Нам доверяют тысячи путешественников</h2>
         <p className="max-w-2xl text-sm text-slate-600">
-          Stories from travellers and hosts who use our service to book, welcome, and manage guests.
-          {isFallback && ' Showing curated demo quotes while the API is offline.'}
+          Истории гостей и хостов, которые бронируют жильё, принимают путешественников и управляют объявлениями.
+          {isFallback && ' Показаны демо-отзывы — API временно недоступен.'}
         </p>
       </div>
       <div className="mt-8 grid gap-6 md:grid-cols-3">
@@ -112,14 +112,14 @@ export default function Testimonials() {
                 </figcaption>
                 <p className="text-xs text-slate-500">
                   {item.type === 'review'
-                    ? `Rating ${item.rating.toFixed(1)} - ${new Date(item.createdAt).toLocaleDateString('en-US')}`
+                    ? `Оценка ${item.rating.toFixed(1)} · ${new Date(item.createdAt).toLocaleDateString('ru-RU')}`
                     : item.role}
                 </p>
               </div>
             </div>
             <blockquote className="mt-4 text-sm leading-relaxed text-slate-600">
               &ldquo;{item.type === 'review'
-                ? item.comment ?? 'The guest left a high rating but did not add a detailed comment.'
+                ? item.comment ?? 'Гость оставил высокую оценку, но не добавил подробный комментарий.'
                 : item.quote}&rdquo;
             </blockquote>
           </figure>

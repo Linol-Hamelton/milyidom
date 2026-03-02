@@ -45,6 +45,12 @@ export class ListingsController {
     return this.listingsService.getFeaturedListings();
   }
 
+  /** City autocomplete — returns distinct cities matching prefix */
+  @Get('cities/autocomplete')
+  getCities(@Query('q') q = '') {
+    return this.listingsService.getCitiesAutocomplete(q);
+  }
+
   @Get()
   findAll() {
     return this.listingsService.findAll();
@@ -88,6 +94,14 @@ export class ListingsController {
     return this.listingsService.create(user.id, createListingDto);
   }
 
+  @Get(':id/similar')
+  getSimilarListings(
+    @Param('id') id: string,
+    @Query('limit') limit?: number,
+  ) {
+    return this.listingsService.getSimilarListings(id, limit ? Number(limit) : 3);
+  }
+
   @Patch(':id')
   @UseGuards(JwtAuthGuard)
   update(
@@ -113,7 +127,28 @@ export class ListingsController {
   @UseInterceptors(
     FileInterceptor('file', {
       storage: memoryStorage(),
-      limits: { fileSize: 10 * 1024 * 1024 },
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB max
+      fileFilter: (
+        _req,
+        file: Express.Multer.File,
+        callback: (error: Error | null, acceptFile: boolean) => void,
+      ) => {
+        const allowedMimeTypes = [
+          'image/jpeg',
+          'image/png',
+          'image/webp',
+          'image/gif',
+        ];
+        if (!allowedMimeTypes.includes(file.mimetype)) {
+          return callback(
+            new BadRequestException(
+              'Разрешены только изображения (jpeg, png, webp, gif)',
+            ),
+            false,
+          );
+        }
+        callback(null, true);
+      },
     }),
   )
   uploadImage(
@@ -144,9 +179,47 @@ export class ListingsController {
     });
   }
 
+  /** AI-powered dynamic pricing suggestion for host */
+  @Get(':id/pricing-suggestion')
+  @UseGuards(JwtAuthGuard)
+  getPricingSuggestion(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.listingsService.getPricingSuggestion(id, user.id);
+  }
+
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
   remove(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
     return this.listingsService.remove(id, user.id);
+  }
+
+  // ── Price overrides (seasonal pricing) ───────────────────────────────────────
+
+  @Get(':id/price-overrides')
+  @UseGuards(JwtAuthGuard)
+  getPriceOverrides(@Param('id') id: string, @CurrentUser() user: CurrentUserType) {
+    return this.listingsService.getPriceOverrides(id, user.id);
+  }
+
+  @Post(':id/price-overrides')
+  @UseGuards(JwtAuthGuard)
+  createPriceOverride(
+    @Param('id') id: string,
+    @CurrentUser() user: CurrentUserType,
+    @Body() body: { label: string; startDate: string; endDate: string; price: number },
+  ) {
+    return this.listingsService.createPriceOverride(id, user.id, body);
+  }
+
+  @Delete(':id/price-overrides/:overrideId')
+  @UseGuards(JwtAuthGuard)
+  deletePriceOverride(
+    @Param('id') id: string,
+    @Param('overrideId') overrideId: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.listingsService.deletePriceOverride(id, overrideId, user.id);
   }
 }

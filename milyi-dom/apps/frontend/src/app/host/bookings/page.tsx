@@ -9,6 +9,22 @@ import { fetchHostBookings, updateBookingStatus } from '../../../services/bookin
 import type { Booking } from '../../../types/api';
 import { parseError } from '../../../lib/api-client';
 
+const STATUS_RU: Record<string, string> = {
+  PENDING: 'Ожидает подтверждения',
+  CONFIRMED: 'Подтверждено',
+  CANCELLED: 'Отменено',
+  COMPLETED: 'Завершено',
+};
+
+const statusColor: Record<string, string> = {
+  PENDING: 'text-amber-600 bg-amber-50',
+  CONFIRMED: 'text-emerald-700 bg-emerald-50',
+  CANCELLED: 'text-rose-600 bg-rose-50',
+  COMPLETED: 'text-slate-600 bg-slate-100',
+};
+
+const fmt = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+
 export default function HostBookingsPage() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -72,30 +88,50 @@ export default function HostBookingsPage() {
                     <div>
                       <h2 className="text-lg font-semibold text-slate-900">{booking.listing.title}</h2>
                       <p className="text-xs text-slate-500">
-                        {new Date(booking.checkIn).toLocaleDateString()} — {new Date(booking.checkOut).toLocaleDateString()}
+                        {fmt.format(new Date(booking.checkIn))} — {fmt.format(new Date(booking.checkOut))}
                       </p>
+                      {booking.guest && (
+                        <p className="mt-0.5 text-xs text-slate-400">
+                          Гость: {booking.guest.profile?.firstName ?? booking.guest.email}
+                        </p>
+                      )}
                     </div>
-                    <div className="text-xs uppercase tracking-wide text-slate-400">{booking.status}</div>
-                  </div>
-                  <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-slate-600">
-                    <span>Гостей: {booking.adults + booking.children}</span>
-                    <span>Детей: {booking.children}</span>
-                    <span>Питомцев: {booking.pets}</span>
-                    <span>
-                      Сумма: {Number(booking.totalPrice).toLocaleString('ru-RU', { style: 'currency', currency: booking.currency })}
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${statusColor[booking.status] ?? 'text-slate-600 bg-slate-100'}`}
+                    >
+                      {STATUS_RU[booking.status] ?? booking.status}
                     </span>
                   </div>
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Button variant="ghost" onClick={() => handleStatusChange(booking.id, 'CONFIRMED')}>
-                      Подтвердить
-                    </Button>
-                    <Button variant="ghost" onClick={() => handleStatusChange(booking.id, 'COMPLETED')}>
-                      Завершить
-                    </Button>
-                    <Button variant="ghost" className="text-rose-600" onClick={() => handleStatusChange(booking.id, 'CANCELLED')}>
-                      Отменить
-                    </Button>
+                  <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-slate-600">
+                    <span>Взрослых: {booking.adults}</span>
+                    {booking.children > 0 && <span>Детей: {booking.children}</span>}
+                    {booking.pets > 0 && <span>Питомцев: {booking.pets}</span>}
+                    <span className="font-medium text-slate-800">
+                      {Number(booking.totalPrice).toLocaleString('ru-RU', { style: 'currency', currency: booking.currency, maximumFractionDigits: 0 })}
+                    </span>
                   </div>
+                  {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {booking.status === 'PENDING' && (
+                        <Button size="sm" onClick={() => handleStatusChange(booking.id, 'CONFIRMED')}>
+                          Подтвердить
+                        </Button>
+                      )}
+                      {booking.status === 'CONFIRMED' && (
+                        <Button size="sm" variant="secondary" onClick={() => handleStatusChange(booking.id, 'COMPLETED')}>
+                          Завершить
+                        </Button>
+                      )}
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="text-rose-600 hover:bg-rose-50"
+                        onClick={() => handleStatusChange(booking.id, 'CANCELLED')}
+                      >
+                        Отменить
+                      </Button>
+                    </div>
+                  )}
                 </article>
               ))}
             </div>

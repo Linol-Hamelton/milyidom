@@ -5,11 +5,15 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { UsersService } from '../users/users.service';
 import { CreateReviewDto } from './dto/create-review.dto';
 
 @Injectable()
 export class ReviewsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly usersService: UsersService,
+  ) {}
 
   async create(userId: string, createReviewDto: CreateReviewDto) {
     const {
@@ -34,27 +38,27 @@ export class ReviewsService {
     });
 
     if (!booking) {
-      throw new NotFoundException('Booking not found');
+      throw new NotFoundException('Бронирование не найдено');
     }
 
     if (booking.guestId !== userId) {
-      throw new ForbiddenException('You can only review your own bookings');
+      throw new ForbiddenException('Оставить отзыв можно только по своему бронированию');
     }
 
     // Check if booking is completed
     if (booking.status !== 'COMPLETED') {
-      throw new BadRequestException('Can only review completed bookings');
+      throw new BadRequestException('Отзыв можно оставить только после завершения поездки');
     }
 
     // Check if review already exists
     if (booking.review) {
-      throw new BadRequestException('Review already exists for this booking');
+      throw new BadRequestException('Отзыв по этому бронированию уже существует');
     }
 
     // Check if check-out date has passed
     const now = new Date();
     if (booking.checkOut > now) {
-      throw new BadRequestException('Cannot review before check-out date');
+      throw new BadRequestException('Отзыв можно оставить только после даты выезда');
     }
 
     // Validate detailed ratings
@@ -69,7 +73,7 @@ export class ReviewsService {
     const isValidRatings = detailedRatings.every((r) => r >= 1 && r <= 5);
 
     if (!isValidRatings) {
-      throw new BadRequestException('All ratings must be between 1 and 5');
+      throw new BadRequestException('Оценки должны быть от 1 до 5');
     }
 
     // Create review
@@ -107,6 +111,9 @@ export class ReviewsService {
 
     // Update listing stats
     await this.prisma.updateListingStats(booking.listingId);
+
+    // Auto-update superhost status for the host (fire-and-forget)
+    void this.usersService.checkAndUpdateSuperhostStatus(review.listing.hostId);
 
     return review;
   }
@@ -278,18 +285,80 @@ export class ReviewsService {
     });
 
     if (!review) {
-      throw new NotFoundException('Review not found');
+      throw new NotFoundException('Отзыв не найден');
     }
 
     // Only host or admin can feature reviews
     const isHost = review.listing.hostId === userId;
     if (!isHost) {
-      throw new ForbiddenException('Only the host can feature reviews');
+      throw new ForbiddenException('Только хозяин может выделять отзывы');
     }
 
     return this.prisma.review.update({
       where: { id: reviewId },
       data: { isFeatured },
     });
+  }
+
+  async replyToReview(reviewId: string, hostId: string, reply: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      include: { listing: { select: { hostId: true } } },
+    });
+
+    if (!review) throw new NotFoundException('Отзыв не найден');
+    if (review.listing.hostId !== hostId) {
+      throw new ForbiddenException('Ответить на отзыв может только хозяин объявления');
+    }
+
+    return this.prisma.review.update({
+      where: { id: reviewId },
+      data: { hostReply: reply.trim(), hostRepliedAt: new Date() },
+    });
+  }
+
+  async deleteReplyToReview(reviewId: string, hostId: string) {
+    const review = await this.prisma.review.findUnique({
+      where: { id: reviewId },
+      include: { listing: { select: { hostId: true } } },
+    });
+
+    if (!review) throw new NotFoundException('Отзыв не найден');
+    if (review.listing.hostId !== hostId) {
+      throw new ForbiddenException('Удалить ответ может только хозяин объявления');
+    }
+
+    return this.prisma.review.update({
+      where: { id: reviewId },
+      data: { hostReply: null, hostRepliedAt: null },
+    });
+  }
+
+  async adminHideReview(reviewId: string) {
+    return this.prisma.review.update({
+      where: { id: reviewId },
+      data: { isHidden: true },
+    });
+  }
+
+  async adminDeleteReview(reviewId: string) {
+    return this.prisma.review.delete({ where: { id: reviewId } });
+  }
+
+  async adminFindAll(page = 1, limit = 20) {
+    const skip = (page - 1) * limit;
+    const [items, total] = await this.prisma.$transaction([
+      this.prisma.review.findMany({
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+        include: {
+          author: { select: { id: true, email: true, profile: { select: { firstName: true, lastName: true } } } },
+          listing: { select: { id: true, title: true } },
+        },
+      }),
+      this.prisma.review.count(),
+    ]);
+    return { items, meta: { page, limit, total } };
   }
 }

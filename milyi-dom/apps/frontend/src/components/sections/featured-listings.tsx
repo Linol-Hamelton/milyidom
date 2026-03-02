@@ -54,19 +54,19 @@ export default function FeaturedListings() {
     <section id="inspiration" className="mx-auto max-w-content-lg px-6 py-16 lg:px-10">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <p className="text-sm uppercase tracking-wide text-pine-600">Editors&#39; picks</p>
-          <h2 className="font-serif text-3xl text-slate-900 md:text-4xl">Ideas for your next getaway</h2>
+          <p className="text-sm uppercase tracking-wide text-pine-600">Выбор редакции</p>
+          <h2 className="font-serif text-3xl text-slate-900 md:text-4xl">Идеи для следующего путешествия</h2>
           <p className="mt-2 max-w-2xl text-sm text-slate-600">
-            Curated homes and apartments with character, verified hosts, and ready-to-go guest services.
+            Уютные дома и квартиры с характером, проверенные хосты и готовые к заезду апартаменты.
           </p>
           {isFallback && (
             <p className="mt-3 text-xs text-slate-500">
-              Showing demo listings because the remote API is currently unavailable.
+              Показаны демо-объявления — API временно недоступен.
             </p>
           )}
         </div>
         <Link href="/listings" className="text-sm font-medium text-pine-600 transition hover:text-pine-500">
-          Browse all listings →
+          Все объявления →
         </Link>
       </div>
 

@@ -1,10 +1,11 @@
 ﻿import { ListingDetailClient } from '../../../components/listings/listing-detail-client';
 
-interface ListingDetailPageProps {
-  params: { id: string };
-}
-
-export default function ListingDetailPage({ params }: ListingDetailPageProps) {
-  return <ListingDetailClient listingId={params.id} />;
+export default async function ListingDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return <ListingDetailClient listingId={id} />;
 }
 

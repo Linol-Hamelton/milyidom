@@ -1,9 +1,25 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Hero() {
+  const router = useRouter();
+  const [location, setLocation] = useState('');
+  const [checkIn, setCheckIn] = useState('');
+  const [checkOut, setCheckOut] = useState('');
   const [guests, setGuests] = useState(2);
+
+  const handleSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    const params = new URLSearchParams();
+    if (location.trim()) params.set('city', location.trim());
+    if (checkIn) params.set('checkIn', checkIn);
+    if (checkOut) params.set('checkOut', checkOut);
+    if (guests > 1) params.set('guests', String(guests));
+    const qs = params.toString();
+    router.push(qs ? `/listings?${qs}` : '/listings');
+  };
 
   return (
     <section className="relative bg-white">
@@ -21,7 +37,7 @@ export default function Hero() {
         </div>
 
         <div className="mx-auto mt-12 max-w-4xl">
-          <div className="rounded-2xl bg-white shadow-2xl ring-1 ring-gray-200">
+          <form onSubmit={handleSearch} className="rounded-2xl bg-white shadow-2xl ring-1 ring-gray-200">
             <div className="grid grid-cols-1 divide-y divide-gray-200 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
               <div className="p-4">
                 <label className="mb-2 block text-sm font-medium text-gray-700">
@@ -29,6 +45,8 @@ export default function Hero() {
                 </label>
                 <input
                   type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
                   placeholder="Город или направление"
                   className="w-full border-0 p-0 text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-0"
                 />
@@ -40,6 +58,9 @@ export default function Hero() {
                 </label>
                 <input
                   type="date"
+                  value={checkIn}
+                  onChange={(e) => setCheckIn(e.target.value)}
+                  min={new Date().toISOString().split('T')[0]}
                   className="w-full border-0 p-0 text-gray-900 focus:outline-none focus:ring-0"
                 />
               </div>
@@ -50,6 +71,9 @@ export default function Hero() {
                 </label>
                 <input
                   type="date"
+                  value={checkOut}
+                  onChange={(e) => setCheckOut(e.target.value)}
+                  min={checkIn || new Date().toISOString().split('T')[0]}
                   className="w-full border-0 p-0 text-gray-900 focus:outline-none focus:ring-0"
                 />
               </div>
@@ -96,7 +120,7 @@ export default function Hero() {
                 </div>
               </div>
             </div>
-          </div>
+          </form>
         </div>
 
         <div className="mt-16 text-center">

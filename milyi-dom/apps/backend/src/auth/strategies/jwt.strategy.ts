@@ -77,11 +77,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     super({
       jwtFromRequest,
       ignoreExpiration: false,
-      secretOrKey: resolveConfigString(
-        configService,
-        'jwt.secret',
-        'change-me',
-      ),
+      secretOrKey: configService.get<string>('jwt.secret')!,
     });
   }
 

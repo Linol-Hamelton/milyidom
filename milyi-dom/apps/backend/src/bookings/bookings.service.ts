@@ -12,6 +12,9 @@ import {
 } from '@prisma/client';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { NotificationsService } from '../notifications/notifications.service';
+import { EmailQueueService } from '../queue/email-queue.service';
+import { PayoutQueueService } from '../queue/payout-queue.service';
+import { LoyaltyService } from '../loyalty/loyalty.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
@@ -32,6 +35,13 @@ const bookingInclude = {
       },
     },
   },
+  guest: {
+    select: {
+      id: true,
+      email: true,
+      profile: true,
+    },
+  },
 } as const;
 
 @Injectable()
@@ -39,6 +49,9 @@ export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly emailService: EmailQueueService,
+    private readonly payoutQueue: PayoutQueueService,
+    private readonly loyalty: LoyaltyService,
   ) {}
 
   async create(guestId: string, dto: CreateBookingDto) {
@@ -56,6 +69,7 @@ export class BookingsService {
         cleaningFee: true,
         serviceFee: true,
         currency: true,
+        host: { select: { email: true, profile: { select: { firstName: true } } } },
         bookings: {
           where: {
             status: { in: [BookingStatus.PENDING, BookingStatus.CONFIRMED] },
@@ -66,14 +80,19 @@ export class BookingsService {
     });
 
     if (!listing || listing.status !== ListingStatus.PUBLISHED) {
-      throw new NotFoundException('Listing not available');
+      throw new NotFoundException('Объявление недоступно для бронирования');
+    }
+
+    // A host cannot book their own listing
+    if (listing.hostId === guestId) {
+      throw new BadRequestException('Нельзя забронировать собственное объявление');
     }
 
     const checkIn = new Date(dto.checkIn);
     const checkOut = new Date(dto.checkOut);
 
     if (checkOut <= checkIn) {
-      throw new BadRequestException('Check-out must be after check-in');
+      throw new BadRequestException('Дата выезда должна быть позже даты заезда');
     }
 
     const nights = Math.round(
@@ -82,13 +101,13 @@ export class BookingsService {
 
     if (listing.minNights && nights < listing.minNights) {
       throw new BadRequestException(
-        `Minimum stay is ${listing.minNights} nights`,
+        `Минимальный срок проживания — ${listing.minNights} ${listing.minNights === 1 ? 'ночь' : listing.minNights <= 4 ? 'ночи' : 'ночей'}`,
       );
     }
 
     if (listing.maxNights && nights > listing.maxNights) {
       throw new BadRequestException(
-        `Maximum stay is ${listing.maxNights} nights`,
+        `Максимальный срок проживания — ${listing.maxNights} ${listing.maxNights === 1 ? 'ночь' : listing.maxNights <= 4 ? 'ночи' : 'ночей'}`,
       );
     }
 
@@ -97,7 +116,7 @@ export class BookingsService {
     );
 
     if (overlap) {
-      throw new BadRequestException('Requested dates are not available');
+      throw new BadRequestException('Выбранные даты уже заняты');
     }
 
     const basePrice = Number(listing.basePrice);
@@ -128,9 +147,9 @@ export class BookingsService {
       userId: listing.hostId,
       type: NotificationType.BOOKING_CONFIRMATION,
       title: listing.instantBook
-        ? 'Instant booking confirmed'
-        : 'New booking request',
-      body: `${listing.title} - ${nights} nights`,
+        ? 'Мгновенное бронирование подтверждено'
+        : 'Новый запрос на бронирование',
+      body: `${listing.title} — ${nights} ${nights === 1 ? 'ночь' : nights <= 4 ? 'ночи' : 'ночей'}`,
       data: { listingId: listing.id, bookingId: booking.id },
     });
 
@@ -138,11 +157,53 @@ export class BookingsService {
       userId: guestId,
       type: NotificationType.BOOKING_CONFIRMATION,
       title: listing.instantBook
-        ? 'Your stay is confirmed'
-        : 'Booking request sent',
-      body: `${listing.title} - ${nights} nights`,
+        ? 'Ваш заезд подтверждён'
+        : 'Запрос на бронирование отправлен',
+      body: `${listing.title} — ${nights} ${nights === 1 ? 'ночь' : nights <= 4 ? 'ночи' : 'ночей'}`,
       data: { listingId: listing.id, bookingId: booking.id },
     });
+
+    // Send email notifications (fire-and-forget — never block booking creation)
+    const guest = await this.prisma.user.findUnique({
+      where: { id: guestId },
+      select: { email: true, profile: { select: { firstName: true } } },
+    });
+
+    // Schedule payout for instant-book (auto-confirmed) bookings
+    if (listing.instantBook) {
+      void this.payoutQueue.schedulePostCheckInPayout({
+        bookingId: booking.id,
+        hostId: listing.hostId,
+        amountCents: Math.round(totalPrice * 100),
+        currency: listing.currency,
+        checkIn,
+      });
+    }
+
+    if (listing.instantBook && guest) {
+      // Confirmed booking: notify the guest
+      void this.emailService.sendBookingConfirmation({
+        to: guest.email,
+        guestName: guest.profile?.firstName ?? 'Гость',
+        listingTitle: listing.title,
+        checkIn,
+        checkOut,
+        totalPrice,
+        currency: listing.currency,
+        bookingId: booking.id,
+      });
+    } else if (listing.host && guest) {
+      // Pending booking: notify the host
+      void this.emailService.sendBookingRequest({
+        to: listing.host.email,
+        hostName: listing.host.profile?.firstName ?? 'Хост',
+        guestName: guest.profile?.firstName ?? 'Гость',
+        listingTitle: listing.title,
+        checkIn,
+        checkOut,
+        bookingId: booking.id,
+      });
+    }
 
     return booking;
   }
@@ -180,11 +241,35 @@ export class BookingsService {
       type: NotificationType.SYSTEM,
       title:
         dto.status === BookingStatus.CONFIRMED
-          ? 'Host confirmed your stay'
-          : 'Booking status updated',
-      body: `${booking.listing.title} - status: ${dto.status.toLowerCase()}`,
+          ? 'Хозяин подтвердил ваш заезд'
+          : dto.status === BookingStatus.CANCELLED
+          ? 'Бронирование отменено'
+          : dto.status === BookingStatus.COMPLETED
+          ? 'Поездка завершена'
+          : 'Статус бронирования изменён',
+      body: booking.listing.title,
       data: { bookingId: updated.id, status: dto.status },
     });
+
+    // Schedule payout D+1 after check-in when host confirms
+    if (dto.status === BookingStatus.CONFIRMED) {
+      void this.payoutQueue.schedulePostCheckInPayout({
+        bookingId: updated.id,
+        hostId: hostId,
+        amountCents: Math.round(Number(updated.totalPrice) * 100),
+        currency: updated.currency,
+        checkIn: updated.checkIn,
+      });
+    }
+
+    // Award loyalty points to the guest when stay is completed
+    if (dto.status === BookingStatus.COMPLETED) {
+      void this.loyalty.earnFromBooking(
+        updated.guestId,
+        Number(updated.totalPrice),
+        updated.id,
+      );
+    }
 
     return updated;
   }
@@ -209,7 +294,7 @@ export class BookingsService {
       booking.status === BookingStatus.CANCELLED ||
       booking.status === BookingStatus.COMPLETED
     ) {
-      throw new BadRequestException('Booking cannot be cancelled');
+      throw new BadRequestException('Это бронирование уже нельзя отменить');
     }
 
     const updated = await this.prisma.booking.update({
@@ -221,10 +306,26 @@ export class BookingsService {
     await this.notifications.create({
       userId: booking.listing.hostId,
       type: NotificationType.SYSTEM,
-      title: 'Guest cancelled the booking',
+      title: 'Гость отменил бронирование',
       body: booking.listing.title,
       data: { bookingId: booking.id },
     });
+
+    // Notify the host via email (fire-and-forget)
+    const host = await this.prisma.user.findUnique({
+      where: { id: booking.listing.hostId },
+      select: { email: true, profile: { select: { firstName: true } } },
+    });
+
+    if (host) {
+      void this.emailService.sendBookingCancellation({
+        to: host.email,
+        recipientName: host.profile?.firstName ?? 'Хост',
+        listingTitle: booking.listing.title,
+        checkIn: booking.checkIn,
+        bookingId: booking.id,
+      });
+    }
 
     return updated;
   }

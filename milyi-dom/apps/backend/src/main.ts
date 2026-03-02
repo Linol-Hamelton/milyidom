@@ -1,11 +1,16 @@
+// Sentry must be initialized before any other imports
+import './instrument';
 import { ClassSerializerInterceptor, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory, Reflector } from '@nestjs/core';
+import { MetricsInterceptor } from './metrics/metrics.interceptor';
+import { MetricsService } from './metrics/metrics.service';
 import express, {
   type Application,
   type Request,
   type Response,
 } from 'express';
+import helmet from 'helmet';
 import { join } from 'path';
 import { AppModule } from './app.module';
 
@@ -32,25 +37,52 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   const config = app.get(ConfigService);
 
+  // ── Security headers (helmet) ───────────────────────────────────────────────
+  app.use(
+    helmet({
+      crossOriginEmbedderPolicy: false, // required for Stripe.js iframes
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", 'https://js.stripe.com'],
+          frameSrc: ["'self'", 'https://js.stripe.com'],
+          connectSrc: ["'self'", 'https://api.stripe.com'],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+        },
+      },
+    }),
+  );
+
+  // ── Global prefix & pipes ───────────────────────────────────────────────────
   app.setGlobalPrefix('api');
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
+      forbidNonWhitelisted: true,
       transform: true,
       transformOptions: { enableImplicitConversion: true },
     }),
   );
-  app.useGlobalInterceptors(new ClassSerializerInterceptor(app.get(Reflector)));
+  app.useGlobalInterceptors(
+    new ClassSerializerInterceptor(app.get(Reflector)),
+    new MetricsInterceptor(app.get(MetricsService)),
+  );
+
+  // ── CORS ─────────────────────────────────────────────────────────────────────
+  const rawOrigins = config.get<string>('ALLOWED_ORIGINS', '');
+  const allowedOrigins: string[] = rawOrigins
+    ? rawOrigins.split(',').map((o) => o.trim()).filter(Boolean)
+    : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://10.139.67.45:3000',
-      'http://127.0.0.1:3000',
-    ],
+    origin: allowedOrigins,
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization'],
   });
 
+  // ── Raw body for Stripe webhook ─────────────────────────────────────────────
   const httpAdapter = app.getHttpAdapter();
   const maybeExpress: unknown = httpAdapter.getInstance();
   assertExpressApplication(maybeExpress);
@@ -61,6 +93,7 @@ async function bootstrap(): Promise<void> {
     express.raw({ type: 'application/json' }),
   );
 
+  // ── Static files ────────────────────────────────────────────────────────────
   const projectRoot = process.cwd();
   const imagesPath = join(projectRoot, '..', '..', 'images');
   expressApp.use('/images', express.static(imagesPath));

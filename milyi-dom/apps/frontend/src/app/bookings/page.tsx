@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import { useCallback, useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { RequireAuth } from '../../components/ui/require-auth';
@@ -173,7 +174,9 @@ export default function BookingsPage() {
                     <div key={booking.id} className="rounded-xl bg-white p-6 shadow-sm border border-gray-100">
                       <div className="flex items-start justify-between mb-4">
                         <div>
-                          <h3 className="font-semibold text-gray-900 text-lg">{booking.listing.title}</h3>
+                          <Link href={`/bookings/${booking.id}`} className="font-semibold text-gray-900 text-lg hover:underline">
+                            {booking.listing.title}
+                          </Link>
                           <p className="text-gray-600 text-sm">{booking.listing.city}, {booking.listing.country}</p>
                         </div>
                         <span className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${statusConfig.bgColor} ${statusConfig.color}`}>

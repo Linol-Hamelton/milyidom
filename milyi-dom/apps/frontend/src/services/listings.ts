@@ -191,6 +191,32 @@ export async function deleteListing(id: string) {
   return data;
 }
 
+export async function uploadListingImage(
+  listingId: string,
+  file: File,
+): Promise<{ url: string; key: string }> {
+  const form = new FormData();
+  form.append('file', file);
+  const { data } = await api.post<{ url: string; key: string }>(
+    `/listings/${listingId}/images`,
+    form,
+  );
+  return data;
+}
+
+export type PricingSuggestion = {
+  suggestedPrice: number;
+  minPrice: number;
+  maxPrice: number;
+  rationale: string;
+  factors: string[];
+};
+
+export async function fetchPricingSuggestion(listingId: string): Promise<PricingSuggestion> {
+  const { data } = await api.get<PricingSuggestion>(`/listings/${listingId}/pricing-suggestion`);
+  return data;
+}
+
 export async function checkAvailability(
   listingId: string,
   checkIn: string,
@@ -212,5 +238,50 @@ export async function checkAvailability(
       return { available: true };
     }
     throw error;
+  }
+}
+
+export type PriceOverride = {
+  id: string;
+  listingId: string;
+  label: string;
+  startDate: string;
+  endDate: string;
+  price: string;
+  createdAt: string;
+};
+
+export async function fetchPriceOverrides(listingId: string): Promise<PriceOverride[]> {
+  const { data } = await api.get<PriceOverride[]>(`/listings/${listingId}/price-overrides`);
+  return data;
+}
+
+export async function createPriceOverride(
+  listingId: string,
+  dto: { label: string; startDate: string; endDate: string; price: number },
+): Promise<PriceOverride> {
+  const { data } = await api.post<PriceOverride>(`/listings/${listingId}/price-overrides`, dto);
+  return data;
+}
+
+export async function deletePriceOverride(listingId: string, overrideId: string): Promise<void> {
+  await api.delete(`/listings/${listingId}/price-overrides/${overrideId}`);
+}
+
+export async function fetchSimilarListings(listingId: string): Promise<Listing[]> {
+  try {
+    const { data } = await api.get<Listing[]>(`/listings/${listingId}/similar`);
+    return data;
+  } catch {
+    return [];
+  }
+}
+
+export async function fetchCitiesAutocomplete(q: string): Promise<string[]> {
+  try {
+    const { data } = await api.get<string[]>('/listings/cities/autocomplete', { params: { q } });
+    return data;
+  } catch {
+    return [];
   }
 }

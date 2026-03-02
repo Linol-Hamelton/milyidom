@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { ListingForm, ListingFormValues } from './listing-form';
+import { PriceOverrides } from './price-overrides';
 import { fetchAmenities } from '../../services/amenities';
 import { fetchListing, updateListing } from '../../services/listings';
 import type { Amenity, Listing } from '../../types/api';
@@ -105,5 +106,10 @@ export function EditListingClient({ listingId }: { listingId: string }) {
     return <p className="text-sm text-slate-500">Не удалось загрузить объявление.</p>;
   }
 
-  return <ListingForm amenities={amenities} initialValues={listing} onSubmit={handleSubmit} submitting={submitting} />;
+  return (
+    <div className="space-y-8">
+      <ListingForm amenities={amenities} initialValues={listing} listingId={listing.id} onSubmit={handleSubmit} submitting={submitting} />
+      <PriceOverrides listingId={listing.id} />
+    </div>
+  );
 }

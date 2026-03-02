@@ -114,6 +114,9 @@ export default function HostListingsPage() {
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    <Button variant="ghost" onClick={() => router.push(`/host/listings/${listing.id}/availability`)}>
+                      Доступность
+                    </Button>
                     <Button variant="ghost" onClick={() => handleStatusChange(listing.id, 'PUBLISHED')}>
                       Опубликовать
                     </Button>

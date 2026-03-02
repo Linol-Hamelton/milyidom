@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Input } from '../ui/input';
 import { Textarea } from '../ui/textarea';
 import { Button } from '../ui/button';
+import { PricingSuggestionWidget } from '../ui/pricing-suggestion-widget';
 import type { Amenity, Listing } from '../../types/api';
 
 export type ListingFormValues = {
@@ -30,11 +31,13 @@ export type ListingFormValues = {
   longitude: number;
   amenityIds: number[];
   images: string;
+  uploadFiles: File[];
 };
 
 interface ListingFormProps {
   amenities: Amenity[];
   initialValues?: Listing;
+  listingId?: string;
   onSubmit: (values: ListingFormValues) => Promise<void>;
   submitting?: boolean;
 }
@@ -63,9 +66,10 @@ const defaultValues: ListingFormValues = {
   longitude: 0,
   amenityIds: [],
   images: '',
+  uploadFiles: [],
 };
 
-export function ListingForm({ amenities, initialValues, onSubmit, submitting }: ListingFormProps) {
+export function ListingForm({ amenities, initialValues, listingId, onSubmit, submitting }: ListingFormProps) {
   const [values, setValues] = useState<ListingFormValues>(() =>
     initialValues ? mapListingToForm(initialValues) : defaultValues,
   );
@@ -94,6 +98,19 @@ export function ListingForm({ amenities, initialValues, onSubmit, submitting }: 
     });
   };
 
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    setValues((prev) => ({ ...prev, uploadFiles: [...prev.uploadFiles, ...files] }));
+    event.target.value = '';
+  };
+
+  const removeFile = (index: number) => {
+    setValues((prev) => ({
+      ...prev,
+      uploadFiles: prev.uploadFiles.filter((_, i) => i !== index),
+    }));
+  };
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     await onSubmit(values);
@@ -111,7 +128,7 @@ export function ListingForm({ amenities, initialValues, onSubmit, submitting }: 
           <Input
             value={values.propertyType}
             onChange={(event) => handleChange('propertyType', event.target.value)}
-            placeholder="apartment"
+            placeholder="квартира"
             required
           />
         </label>
@@ -147,6 +164,14 @@ export function ListingForm({ amenities, initialValues, onSubmit, submitting }: 
           onChange={(val) => handleChange('basePrice', val)}
           min={0}
         />
+        {listingId && (
+          <div className="sm:col-span-2 lg:col-span-3">
+            <PricingSuggestionWidget
+              listingId={listingId}
+              onApply={(price) => handleChange('basePrice', price)}
+            />
+          </div>
+        )}
         <label className="flex flex-col gap-2 text-sm text-slate-600">
           Валюта
           <Input value={values.currency} onChange={(event) => handleChange('currency', event.target.value)} />
@@ -222,11 +247,49 @@ export function ListingForm({ amenities, initialValues, onSubmit, submitting }: 
 
       <section className="space-y-3">
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Фотографии</h3>
+
+        {/* File upload */}
+        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 px-6 py-4 text-sm text-slate-500 transition hover:border-pine-400 hover:text-pine-600">
+          <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+          </svg>
+          Загрузить фото с компьютера
+          <input
+            type="file"
+            multiple
+            accept="image/*"
+            className="sr-only"
+            onChange={handleFileChange}
+          />
+        </label>
+
+        {values.uploadFiles.length > 0 && (
+          <ul className="space-y-2">
+            {values.uploadFiles.map((file, index) => (
+              <li
+                key={index}
+                className="flex items-center justify-between rounded-xl border border-slate-200 px-4 py-2 text-sm text-slate-700"
+              >
+                <span className="truncate">{file.name}</span>
+                <button
+                  type="button"
+                  onClick={() => removeFile(index)}
+                  className="ml-3 shrink-0 text-slate-400 hover:text-red-500"
+                  aria-label="Удалить файл"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <p className="text-xs text-slate-400">Или укажите ссылки вручную (по одной на строку):</p>
         <Textarea
-          rows={4}
+          rows={3}
           value={values.images}
           onChange={(event) => handleChange('images', event.target.value)}
-          placeholder="Одна ссылка на строку. Первая будет главной."
+          placeholder="https://example.com/photo.jpg"
         />
       </section>
 
@@ -264,6 +327,7 @@ function mapListingToForm(listing: Listing): ListingFormValues {
     longitude: Number(listing.longitude),
     amenityIds: listing.amenities.map((item) => item.amenity.id),
     images: listing.images.map((image) => image.url).join('\n'),
+    uploadFiles: [],
   };
 }
 
