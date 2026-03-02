@@ -1,243 +1,139 @@
 # Милый Дом — Деплой на сервер с FastPanel
+## (Реальная продакшн-конфигурация)
 
-> Этот гайд для ситуации: на сервере уже работает **FastPanel**, есть другие сайты,
-> и нужно добавить «Милый Дом» без риска сломать что-то существующее.
-
-**Принцип:** FastPanel управляет Nginx и SSL — мы это не трогаем.
-Docker запускает приложение на localhost-портах, FastPanel создаёт proxy-сайты к ним.
+> **Актуально для:** Beget VPS, IP `62.217.178.117`, Ubuntu 22.04, FastPanel.
+> Этот гайд описывает **реальное** состояние сервера — не шаблон, а факты.
+> Все пути, порты, URL соответствуют тому, что сейчас работает в продакшне.
 
 ---
 
-## Архитектура на сервере с FastPanel
+## Архитектура на сервере
 
 ```
 Интернет
     │
     ▼
-FastPanel Nginx (80/443) ← управляет FastPanel, трогать напрямую НЕЛЬЗЯ
+FastPanel Nginx (80/443) ← SSL Let's Encrypt, управляет FastPanel
     │
-    ├─► proxy → 127.0.0.1:3000  ← milyi_dom_frontend (Docker)
-    ├─► proxy → 127.0.0.1:4001  ← milyi_dom_backend  (Docker)
-    └─► proxy → 127.0.0.1:3001  ← milyi_dom_grafana  (Docker, опционально)
+    ├─► proxy → 127.0.0.1:3002  ← milyi_dom_frontend (Docker, Next.js)
+    ├─► proxy → 127.0.0.1:4001  ← milyi_dom_backend  (Docker, NestJS)
+    └─► proxy → 127.0.0.1:3003  ← milyi_dom_grafana  (Docker, опционально)
 
-Docker containers (слушают только на localhost — не доступны снаружи):
-    milyi_dom_frontend :3000
-    milyi_dom_backend  :4001
-    milyi_dom_db       :5432  (только внутри docker-сети, наружу не выходит)
-    milyi_dom_redis    :6379  (только внутри docker-сети)
-    milyi_dom_typesense:8108  (только внутри docker-сети)
-    milyi_dom_pgbouncer:5433  (только внутри docker-сети)
+Docker containers (слушают только на localhost):
+    milyi_dom_frontend   127.0.0.1:3002  (порт 3000 занят next-labus-app)
+    milyi_dom_backend    127.0.0.1:4001
+    milyi_dom_db         внутри docker-сети (PostgreSQL 16 + PostGIS 3.4)
+    milyi_dom_redis      127.0.0.1:6380  (порт 6379 занят системным Redis)
+    milyi_dom_typesense  внутри docker-сети (порт 8108)
+    milyi_dom_pgbouncer  внутри docker-сети (порт 5433)
+    milyi_dom_grafana    127.0.0.1:3003  (порт 3001 занят dev-next-labus-app)
+    milyi_dom_prometheus внутри docker-сети (порт 9090)
 ```
 
-Другие сайты через FastPanel продолжают работать как обычно — конфликтов нет.
+> **Важно:** на сервере уже работают другие приложения, поэтому стандартные порты
+> 3000, 6379, 3001 заняты. Milyi Dom использует 3002, 6380, 3003.
 
 ---
 
-## Шаг 1. Установка Docker (если ещё нет)
+## Реальные данные сервера
 
-SSH на сервер и выполнить:
+| Параметр | Значение |
+|---|---|
+| Провайдер | Beget VPS |
+| IP | `62.217.178.117` |
+| ОС | Ubuntu 22.04 LTS |
+| Панель управления | FastPanel |
+| Путь проекта | `/opt/milyi-dom/milyi-dom/` |
+| Репозиторий | `https://github.com/Linol-Hamelton/milyidom.git` |
+| DNS-регистратор | Reg.ru (ns1.reg.ru, ns2.reg.ru) |
+| SSL | Let's Encrypt через FastPanel |
+| Хранилище изображений | Yandex Object Storage (`milyidom-images`, `ru-central1`) |
 
-```bash
-# Проверить — возможно уже установлен
-docker --version && docker compose version
+### DNS A-записи (Reg.ru)
 
-# Если не установлен:
-curl -fsSL https://get.docker.com | sh
-
-# Добавить текущего пользователя в группу docker (чтобы не писать sudo)
-usermod -aG docker $USER
-newgrp docker   # применить без перезахода
-```
-
-> FastPanel не конфликтует с Docker. Они работают независимо на одном сервере.
+| Тип | Имя | Значение | TTL |
+|---|---|---|---|
+| A | `@` | `62.217.178.117` | 300 |
+| A | `www` | `62.217.178.117` | 300 |
+| A | `api` | `62.217.178.117` | 300 |
 
 ---
 
-## Шаг 2. Изменить docker-compose.yml — порты только на localhost
+## Расположение файлов на сервере
 
-Это **ключевой момент безопасности**: Docker-контейнеры должны быть доступны
-только с localhost, а не из интернета напрямую.
+```
+/opt/milyi-dom/
+└── milyi-dom/                    ← git clone репозитория (корень monorepo)
+    ├── milyi-dom/                ← монорепозиторий приложения
+    │   ├── apps/
+    │   │   ├── backend/
+    │   │   │   └── .env          ← production env (не в git, вручную)
+    │   │   └── frontend/
+    │   │       └── .env.local    ← production env (не в git, вручную)
+    │   ├── docker-compose.yml
+    │   └── .env                  ← build args для docker-compose
+    └── images/                   ← локальные изображения (fallback, dev only)
+```
 
-Откройте файл `milyi-dom/docker-compose.yml` и измените секции портов:
+> **Рабочая директория для команд:** `/opt/milyi-dom/milyi-dom/`
+
+---
+
+## Порты (с учётом конфликтов на сервере)
+
+В `docker-compose.yml` настроены следующие порты. Если начинаете с нуля — убедитесь,
+что эти порты свободны на вашем сервере:
 
 ```yaml
-  backend:
-    # ... остальная конфигурация ...
-    ports:
-      - '127.0.0.1:4001:4001'   # ← было: '4001:4001'
+# Фрагмент docker-compose.yml для справки
+frontend:
+  ports:
+    - '127.0.0.1:3002:3000'   # 3000 занят другим приложением → используем 3002
 
-  frontend:
-    # ... остальная конфигурация ...
-    ports:
-      - '127.0.0.1:3000:3000'   # ← было: '3000:3000'
+backend:
+  ports:
+    - '127.0.0.1:4001:4001'
 
-  grafana:
-    # ... остальная конфигурация ...
-    ports:
-      - '127.0.0.1:3001:3000'   # ← было: '3001:3000'
+redis:
+  ports:
+    - '127.0.0.1:6380:6379'   # 6379 занят системным Redis → используем 6380
 
-  # prometheus — только внутренний, порт вообще убрать или оставить 127.0.0.1
-  prometheus:
-    ports:
-      - '127.0.0.1:9090:9090'
+grafana:
+  ports:
+    - '127.0.0.1:3003:3000'   # 3001 занят другим приложением → используем 3003
 ```
 
-> **Порты db, redis, typesense, pgbouncer — не публикуем вообще.** Они работают
-> только внутри docker-сети и не нужны снаружи.
-
----
-
-## Шаг 3. Загрузить проект на сервер
-
-### Вариант A: через Git (рекомендуется для CI/CD)
-
+Проверить конфликты:
 ```bash
-mkdir -p /var/www
-cd /var/www
-git clone https://github.com/your-org/milyi-dom.git milyi-dom
-```
-
-### Вариант B: через файловый менеджер FastPanel
-
-1. В FastPanel → **Файловый менеджер** (или FTP/SFTP)
-2. Загрузить архив в `/var/www/milyi-dom/`
-3. Распаковать: `tar -xzf milyi-dom.tar.gz`
-
-### Вариант C: через rsync с локальной машины
-
-```bash
-rsync -avz --exclude node_modules --exclude .next \
-  d:/newhome/newhome/milyi-dom/ \
-  user@your-server:/var/www/milyi-dom/
+ss -tlnp | grep -E '3000|3001|3002|6379|6380|4001'
 ```
 
 ---
 
-## Шаг 4. Настроить переменные окружения
+## FastPanel: proxy-сайты
 
-```bash
-cd /var/www/milyi-dom/milyi-dom
+В FastPanel созданы два proxy-сайта:
 
-# Backend .env
-cp apps/backend/.env.example apps/backend/.env
-nano apps/backend/.env    # или vi, или редактировать через FastPanel File Manager
-```
+### milyidom.com → Frontend
 
-**Минимальный набор для apps/backend/.env:**
+- **Домен:** `milyidom.com`, `www.milyidom.com`
+- **Тип:** Proxy
+- **Адрес прокси:** `http://127.0.0.1:3002`
+- **SSL:** Let's Encrypt (автоматически через FastPanel)
 
-```env
-NODE_ENV=production
-PORT=4001
+### api.milyidom.com → Backend
 
-DATABASE_URL=postgresql://postgres:ЗАМЕНИТЕ_ПАРОЛЬ@pgbouncer:5432/milyi_dom?schema=public&pgbouncer=true
-DIRECT_DATABASE_URL=postgresql://postgres:ЗАМЕНИТЕ_ПАРОЛЬ@db:5432/milyi_dom?schema=public
+- **Домен:** `api.milyidom.com`
+- **Тип:** Proxy
+- **Адрес прокси:** `http://127.0.0.1:4001`
+- **SSL:** Let's Encrypt (автоматически через FastPanel)
 
-# Генерируйте командой: openssl rand -base64 48
-JWT_SECRET=сюда_вставить_длинную_случайную_строку_минимум_48_символов
-JWT_REFRESH_SECRET=другая_длинная_случайная_строка_минимум_48_символов
-JWT_EXPIRES_IN=15m
-JWT_REFRESH_EXPIRES_IN=7d
+### Custom Nginx директивы для api.milyidom.com
 
-ALLOWED_ORIGINS=https://milyidom.com,https://www.milyidom.com
-FRONTEND_URL=https://milyidom.com
-
-STRIPE_SECRET_KEY=sk_live_...
-STRIPE_PUBLISHABLE_KEY=pk_live_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-
-REDIS_URL=redis://redis:6379
-
-SMTP_HOST=smtp.resend.com
-SMTP_PORT=587
-SMTP_USER=resend
-SMTP_PASS=re_...
-
-TYPESENSE_HOST=typesense
-TYPESENSE_PORT=8108
-TYPESENSE_API_KEY=замените_на_случайную_строку
-
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_CALLBACK_URL=https://api.milyidom.com/api/auth/google/callback
-
-VK_CLIENT_ID=
-VK_CLIENT_SECRET=
-VK_CALLBACK_URL=https://api.milyidom.com/api/auth/vk/callback
-
-S3_BUCKET=
-S3_REGION=auto
-S3_ENDPOINT=
-S3_ACCESS_KEY_ID=
-S3_SECRET_ACCESS_KEY=
-CDN_BASE_URL=
-
-ANTHROPIC_API_KEY=sk-ant-...
-```
-
-```bash
-# Frontend .env.local
-cp apps/frontend/.env.example apps/frontend/.env.local
-nano apps/frontend/.env.local
-```
-
-```env
-NEXT_PUBLIC_API_URL=https://api.milyidom.com/api
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
-NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
-NEXT_PUBLIC_FALLBACK_IMAGE_URL=/images/listing-1.jpg
-```
-
-```bash
-# .env в корне (build args для docker-compose)
-cat > /var/www/milyi-dom/milyi-dom/.env << 'EOF'
-NEXT_PUBLIC_API_URL=https://api.milyidom.com/api
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
-NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
-GRAFANA_PASSWORD=ваш_пароль_grafana
-EOF
-
-# Права только для владельца
-chmod 600 apps/backend/.env
-chmod 600 apps/frontend/.env.local
-chmod 600 .env
-```
-
-> **Генерация JWT секретов прямо в терминале:**
-> ```bash
-> openssl rand -base64 48   # запустите дважды — для JWT_SECRET и JWT_REFRESH_SECRET
-> ```
-
----
-
-## Шаг 5. Создать домены в FastPanel
-
-### 5.1. Frontend (milyidom.com)
-
-1. FastPanel → **Сайты** → **Создать сайт**
-2. Домен: `milyidom.com` + `www.milyidom.com`
-3. Тип: **Proxy** (или «Обратный прокси»)
-4. Адрес прокси: `http://127.0.0.1:3000`
-5. SSL: поставить галку **Let's Encrypt** → выпустить автоматически
-6. **Сохранить**
-
-### 5.2. Backend API (api.milyidom.com)
-
-1. FastPanel → **Сайты** → **Создать сайт**
-2. Домен: `api.milyidom.com`
-3. Тип: **Proxy**
-4. Адрес прокси: `http://127.0.0.1:4001`
-5. SSL: **Let's Encrypt**
-6. **Сохранить**
-
-### 5.3. Добавить custom Nginx конфиг для WebSocket и Stripe webhook
-
-FastPanel обычно позволяет добавить дополнительную конфигурацию Nginx через:
-**Сайты → api.milyidom.com → Nginx конфигурация (custom / дополнительные директивы)**
-
-Добавьте туда:
+Добавить через FastPanel → Сайты → api.milyidom.com → Nginx конфигурация:
 
 ```nginx
-# WebSocket поддержка (для Socket.io)
+# WebSocket (Socket.io)
 location /socket.io/ {
     proxy_pass http://127.0.0.1:4001;
     proxy_http_version 1.1;
@@ -248,7 +144,7 @@ location /socket.io/ {
     proxy_read_timeout 86400s;
 }
 
-# Stripe webhook — без буферизации тела запроса
+# Stripe webhook — без буферизации тела
 location /api/payments/webhook {
     proxy_pass http://127.0.0.1:4001;
     proxy_http_version 1.1;
@@ -258,223 +154,363 @@ location /api/payments/webhook {
     proxy_request_buffering off;
 }
 
-# Размер загружаемых файлов (изображения объявлений до 10MB + запас)
+# Размер загружаемых изображений
 client_max_body_size 15M;
 ```
 
-> **Если FastPanel не показывает поле custom Nginx config:**
-> Конфиги сайтов FastPanel обычно лежат в `/etc/nginx/sites-enabled/` или
-> `/usr/local/fastpanel2/etc/nginx/`.
-> Найдите конфиг вашего домена и добавьте блоки вручную, затем `nginx -t && nginx -s reload`.
+---
 
-### 5.4. Grafana (grafana.milyidom.com) — опционально
+## Переменные окружения (production)
 
-Аналогично, но proxy → `http://127.0.0.1:3001`.
-Рекомендуется ограничить доступ по IP через FastPanel или в custom Nginx config:
-```nginx
-allow ВАШ_IP;
-deny all;
+### `/opt/milyi-dom/milyi-dom/apps/backend/.env`
+
+```env
+NODE_ENV=production
+PORT=4001
+
+# База данных (через PgBouncer + прямое подключение для миграций)
+DATABASE_URL=postgresql://postgres:ПАРОЛЬ@pgbouncer:5432/milyi_dom?schema=public&pgbouncer=true
+DIRECT_DATABASE_URL=postgresql://postgres:ПАРОЛЬ@db:5432/milyi_dom?schema=public
+
+# JWT (генерировать: openssl rand -base64 48)
+JWT_SECRET=<64+ символов>
+JWT_REFRESH_SECRET=<другие 64+ символов>
+JWT_EXPIRES_IN=15m
+JWT_REFRESH_EXPIRES_IN=7d
+
+# CORS
+ALLOWED_ORIGINS=https://milyidom.com,https://www.milyidom.com
+FRONTEND_URL=https://milyidom.com
+
+# Stripe
+STRIPE_SECRET_KEY=sk_live_...
+STRIPE_PUBLISHABLE_KEY=pk_live_...
+STRIPE_WEBHOOK_SECRET=whsec_...
+STRIPE_CONNECT_CLIENT_ID=ca_...
+
+# Redis (внутри docker-сети, без порта-конфликта)
+REDIS_URL=redis://redis:6379
+
+# Email (Resend)
+SMTP_HOST=smtp.resend.com
+SMTP_PORT=587
+SMTP_USER=resend
+SMTP_PASS=re_...
+
+# Typesense (внутри docker-сети)
+TYPESENSE_HOST=typesense
+TYPESENSE_PORT=8108
+TYPESENSE_API_KEY=<случайная строка, openssl rand -hex 32>
+
+# OAuth
+GOOGLE_CLIENT_ID=...apps.googleusercontent.com
+GOOGLE_CLIENT_SECRET=GOCSPX-...
+GOOGLE_CALLBACK_URL=https://api.milyidom.com/api/auth/google/callback
+
+VK_CLIENT_ID=...
+VK_CLIENT_SECRET=...
+VK_CALLBACK_URL=https://api.milyidom.com/api/auth/vk/callback
+
+# Yandex Object Storage (изображения объявлений)
+S3_BUCKET=milyidom-images
+S3_REGION=ru-central1
+S3_ENDPOINT=https://storage.yandexcloud.net
+S3_ACCESS_KEY_ID=<ключ сервисного аккаунта>
+S3_SECRET_ACCESS_KEY=<секрет сервисного аккаунта>
+CDN_BASE_URL=https://milyidom-images.storage.yandexcloud.net
+
+# Anthropic AI
+ANTHROPIC_API_KEY=sk-ant-api03-...
+
+# Sentry (опционально)
+# SENTRY_DSN=https://...@o0.ingest.sentry.io/0
+```
+
+### `/opt/milyi-dom/milyi-dom/apps/frontend/.env.local`
+
+```env
+NEXT_PUBLIC_API_URL=https://api.milyidom.com/api
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
+NEXT_PUBLIC_FALLBACK_IMAGE_URL=/images/listing-1.jpg
+```
+
+### `/opt/milyi-dom/milyi-dom/.env` (build args для docker-compose)
+
+```env
+NEXT_PUBLIC_API_URL=https://api.milyidom.com/api
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
+GRAFANA_PASSWORD=<пароль для Grafana>
 ```
 
 ---
 
-## Шаг 6. Первый запуск: сборка и БД
+## Команды деплоя
+
+### Стандартный деплой (обновление кода)
 
 ```bash
-cd /var/www/milyi-dom/milyi-dom
+cd /opt/milyi-dom/milyi-dom
 
-# Создать папку для изображений
-mkdir -p images
+# 1. Получить новый код
+git pull
 
-# Собрать все образы (первый раз ~5-15 минут)
-docker compose build
+# 2. Пересобрать и перезапустить frontend (если изменялся только frontend)
+docker compose up -d --build frontend
 
-# Запустить только инфраструктуру (БД, Redis, Typesense)
-docker compose up -d db redis typesense pgbouncer
+# 3. Пересобрать и перезапустить backend (если изменялся backend или schema.prisma)
+docker compose up -d --build backend
 
-# Подождать пока БД поднимется (~15 секунд)
-sleep 15
+# 4. Оба сразу (если изменялось и то и другое)
+docker compose up -d --build frontend backend
 
-# Применить все миграции
-docker compose run --rm \
-  -e DATABASE_URL="postgresql://postgres:ЗАМЕНИТЕ_ПАРОЛЬ@db:5432/milyi_dom?schema=public" \
-  backend \
-  sh -c "npx prisma migrate deploy"
-
-# Запустить всё остальное
-docker compose up -d
-
-# Проверить статусы
-docker compose ps
-```
-
-**Ожидаемый вывод `docker compose ps`:**
-```
-NAME                    STATUS
-milyi_dom_db            Up (healthy)
-milyi_dom_redis         Up (healthy)
-milyi_dom_typesense     Up (healthy)
-milyi_dom_pgbouncer     Up (healthy)
-milyi_dom_backend       Up
-milyi_dom_frontend      Up
-milyi_dom_prometheus    Up
-milyi_dom_grafana       Up
-```
-
----
-
-## Шаг 7. Проверка
-
-```bash
-# Backend отвечает
-curl http://127.0.0.1:4001/api/health
-# → {"status":"ok","timestamp":"..."}
-
-# Frontend отвечает
-curl -I http://127.0.0.1:3000
-# → HTTP/1.1 200 OK
-
-# Через домен (после того как DNS прописан и SSL выпущен)
-curl https://api.milyidom.com/api/health
-curl -I https://milyidom.com
-
-# Логи при проблемах
-docker compose logs backend --tail=50
-docker compose logs frontend --tail=50
-```
-
----
-
-## Шаг 8. Обновление (после изменений в коде)
-
-```bash
-cd /var/www/milyi-dom/milyi-dom
-
-# Получить новую версию
-git pull origin main
-
-# Применить новые миграции (если есть)
-docker compose run --rm \
-  -e DATABASE_URL="postgresql://postgres:ПАРОЛЬ@db:5432/milyi_dom?schema=public" \
-  backend sh -c "npx prisma migrate deploy"
-
-# Пересобрать только изменившиеся сервисы
-docker compose build backend frontend
-
-# Перезапустить без остановки БД и Redis
-docker compose up -d --no-deps backend frontend
-
-# Очистить старые образы
+# 5. Очистить старые слои Docker (после успешного деплоя)
 docker system prune -f
 ```
 
----
-
-## Типичные проблемы с FastPanel
-
-### «502 Bad Gateway» после создания proxy-сайта
-
-**Причина:** Docker-контейнер ещё не запущен или слушает не на том порту.
+### Применение миграций БД
 
 ```bash
-# Проверить что контейнер запущен
+cd /opt/milyi-dom/milyi-dom
+
+# Применить новые Prisma-миграции (DIRECT_DATABASE_URL bypasses PgBouncer)
+docker compose exec backend sh -c "cd /monorepo/apps/backend && npx prisma migrate deploy"
+```
+
+### Проверка состояния
+
+```bash
+cd /opt/milyi-dom/milyi-dom
+
+# Все контейнеры запущены
 docker compose ps
 
-# Проверить что порт слушается
-ss -tlnp | grep 3000   # frontend
+# Логи backend (последние 50 строк)
+docker compose logs backend --tail=50
+
+# Логи frontend
+docker compose logs frontend --tail=50
+
+# Здоровье API
+curl https://api.milyidom.com/api/health
+
+# Использование ресурсов
+docker stats --no-stream
+```
+
+---
+
+## Тестовые данные (Seed)
+
+База данных содержит 15 тестовых объявлений в 9 городах.
+
+### Добавить тестовые данные
+
+```bash
+cd /opt/milyi-dom/milyi-dom
+
+docker compose exec backend sh -c \
+  "cd /monorepo/apps/backend && node -e \"require('child_process').execSync('npx ts-node --transpile-only prisma/seed.ts', {stdio:'inherit'})\""
+```
+
+**Скрипт идемпотентен** — повторный запуск пропускает существующие записи.
+
+### Тестовые учётные записи (пароль: `password123`)
+
+| Email | Роль | Имя |
+|---|---|---|
+| `host@example.com` | HOST (Суперхост) | Елена Морозова |
+| `host2@example.com` | HOST (Суперхост) | Наталья Сорокина |
+| `guest@example.com` | GUEST | Сергей Иванов |
+| `admin@example.com` | ADMIN | Максим Петров |
+
+### Удалить тестовые данные
+
+```bash
+docker compose exec backend sh -c \
+  "cd /monorepo/apps/backend && node -e \"require('child_process').execSync('npx ts-node --transpile-only prisma/seed-clear.ts', {stdio:'inherit'})\""
+```
+
+Удаляет **только** записи с маркерами: IDs начинающиеся на `seed_`, email `@example.com`.
+Реальные данные пользователей не затрагиваются.
+
+---
+
+## Хранилище изображений — Yandex Object Storage
+
+Настройки бакета в Яндекс Облаке:
+- **Имя бакета:** `milyidom-images`
+- **Регион:** `ru-central1`
+- **Чтение объектов:** Публичный (для отображения без подписи)
+- **Чтение списка:** Приватный
+- **Класс хранения:** Стандартный
+- **Версионирование:** Выкл
+
+Сервисный аккаунт IAM должен иметь роль `storage.uploader`.
+
+**Как работает fallback:**
+- Если `S3_ACCESS_KEY_ID` пустой → изображения сохраняются на диск в `/opt/milyi-dom/milyi-dom/images/` (только для dev-режима)
+- Тестовые данные seed используют Unsplash CDN URL напрямую — никакой загрузки не требуется
+
+**Важно для Next.js Image:**
+Изображения с внешних URL (Unsplash, Yandex Object Storage) рендерятся через `<Image unoptimized>` —
+Next.js Image optimization (`/_next/image`) не применяется, т.к. VPS не может проксировать
+запросы к внешним CDN из-за серверных ограничений.
+
+---
+
+## Известные особенности и их решения
+
+### Конфликты портов
+
+На сервере уже запущены другие приложения:
+
+| Порт | Занят | Используем |
+|---|---|---|
+| 3000 | next-labus-app | Frontend → 3002 |
+| 3001 | dev-next-labus-app | Grafana → 3003 |
+| 6379 | системный Redis | Redis → 6380 |
+
+Если понадобится добавить новое приложение — проверить свободные порты: `ss -tlnp`.
+
+### Reviews API несоответствие
+
+Backend возвращает `{ reviews: [], total, page, limit }`, frontend ожидает `{ items: [], meta: { page, limit, total } }`.
+Исправлено нормализацией в `apps/frontend/src/services/reviews.ts` → функция `fetchListingReviews`.
+
+### Запуск seed через ts-node в Docker
+
+`npx pnpm prisma:seed` требует запуска из директории конкретного воркспейса.
+Надёжный вариант — запуск через ts-node напрямую из `/monorepo/apps/backend/`:
+
+```bash
+docker compose exec backend sh -c \
+  "cd /monorepo/apps/backend && node -e \"require('child_process').execSync('npx ts-node --transpile-only prisma/seed.ts', {stdio:'inherit'})\""
+```
+
+---
+
+## Первый деплой с нуля (на новый сервер)
+
+```bash
+# 1. Установить Docker (если нет)
+curl -fsSL https://get.docker.com | sh
+usermod -aG docker $USER && newgrp docker
+
+# 2. Проверить свободные порты
+ss -tlnp | grep -E '3000|3001|3002|4001|6379|6380'
+
+# 3. Клонировать репозиторий
+mkdir -p /opt/milyi-dom
+cd /opt/milyi-dom
+git clone https://github.com/Linol-Hamelton/milyidom.git milyi-dom
+cd milyi-dom/milyi-dom
+
+# 4. Создать .env файлы (заполнить реальными значениями)
+cp apps/backend/.env.example apps/backend/.env
+nano apps/backend/.env
+
+# Frontend .env.local
+nano apps/frontend/.env.local
+# NEXT_PUBLIC_API_URL=https://api.milyidom.com/api
+# NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
+
+# .env в корне monorepo (build args)
+nano .env
+# NEXT_PUBLIC_API_URL=https://api.milyidom.com/api
+# NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1...
+
+# 5. Проверить/настроить порты в docker-compose.yml под реалии сервера
+# (изменить если нужно: '127.0.0.1:3002:3000', '127.0.0.1:6380:6379' и т.д.)
+
+# 6. Первый запуск
+docker compose up -d db redis typesense pgbouncer
+sleep 20
+
+# 7. Применить миграции
+docker compose exec backend sh -c \
+  "cd /monorepo/apps/backend && npx prisma migrate deploy"
+
+# 8. Запустить всё
+docker compose up -d
+
+# 9. Проверить
+docker compose ps
+curl http://127.0.0.1:4001/api/health
+curl -I http://127.0.0.1:3002
+
+# 10. В FastPanel создать proxy-сайты:
+#     milyidom.com     → http://127.0.0.1:3002  + Let's Encrypt SSL
+#     api.milyidom.com → http://127.0.0.1:4001  + Let's Encrypt SSL
+#     Добавить custom nginx для WebSocket + Stripe webhook
+
+# 11. Добавить тестовые данные (опционально)
+docker compose exec backend sh -c \
+  "cd /monorepo/apps/backend && node -e \"require('child_process').execSync('npx ts-node --transpile-only prisma/seed.ts', {stdio:'inherit'})\""
+```
+
+---
+
+## Чеклист проверки после деплоя
+
+- [ ] `https://milyidom.com` открывается, SSL валиден
+- [ ] `https://api.milyidom.com/api/health` → `{"status":"ok"}`
+- [ ] Главная страница: блок "Идеи для путешествий" показывает карточки с изображениями
+- [ ] Страница листинга `/listings/seed_spb_penthouse` открывается без ошибок
+- [ ] Регистрация и вход работают
+- [ ] Загрузка изображений хоста → файл появляется в Yandex Object Storage
+- [ ] WebSocket (сообщения в реальном времени) работает
+- [ ] `docker compose ps` — все контейнеры Up/Healthy
+
+---
+
+## Типичные проблемы
+
+### 502 Bad Gateway
+
+```bash
+# Проверить что контейнер запущен и слушает нужный порт
+docker compose ps
+ss -tlnp | grep 3002   # frontend
 ss -tlnp | grep 4001   # backend
 
-# Если порты есть — перезагрузить nginx FastPanel
+# Перезагрузить nginx FastPanel
 nginx -t && nginx -s reload
-# или через FastPanel UI: Сервисы → Nginx → Перезапустить
 ```
 
-### FastPanel перезаписывает custom Nginx конфиг
-
-FastPanel может перезаписывать конфиги сайтов при изменении настроек.
-**Решение:** Используйте специальный `include`-файл который FastPanel не трогает:
+### Контейнеры не стартуют после перезагрузки сервера
 
 ```bash
-# Создать файл с кастомными директивами
-cat > /etc/nginx/conf.d/milyi-dom-websocket.conf << 'EOF'
-# Этот файл не управляется FastPanel
-# Кастомные директивы для api.milyidom.com
-EOF
-```
-
-Или после каждого изменения в FastPanel — проверяйте custom блок через UI.
-
-### SSL сертификат не выдаётся
-
-```bash
-# FastPanel выдаёт Let's Encrypt автоматически через веб-интерфейс
-# Если не работает — проверить что DNS уже указывает на сервер:
-dig milyidom.com +short
-dig api.milyidom.com +short
-
-# Порт 80 должен быть открыт (для валидации Let's Encrypt)
-curl -I http://milyidom.com   # должен ответить, пусть даже 301/302
-```
-
-### Конфликт портов с другими сайтами FastPanel
-
-Контейнеры слушают на `127.0.0.1:3000` и `127.0.0.1:4001`.
-Конфликт возможен только если какой-то другой процесс уже занял эти порты.
-
-```bash
-ss -tlnp | grep -E '3000|4001'   # должно быть пусто до запуска Docker
-```
-
-Если занято — изменить порты в `docker-compose.yml`:
-```yaml
-ports:
-  - '127.0.0.1:13000:3000'   # другой внешний порт
-  - '127.0.0.1:14001:4001'
-```
-И обновить адрес прокси в FastPanel.
-
-### Docker контейнеры не стартуют после перезагрузки сервера
-
-```bash
-# Добавить автозапуск docker (обычно уже включён)
+# Убедиться что docker запускается автоматически
 systemctl enable docker
 
-# Проверить политику restart в docker-compose.yml
-# Все сервисы должны иметь: restart: unless-stopped
-# Тогда при перезапуске сервера контейнеры поднимутся автоматически
+# В docker-compose.yml все сервисы должны иметь: restart: unless-stopped
+```
+
+### Backend не стартует: "JWT_SECRET env variable is required in production"
+
+```bash
+grep JWT_SECRET /opt/milyi-dom/milyi-dom/apps/backend/.env
+# Убедиться NODE_ENV=production и JWT_SECRET заполнен
+```
+
+### Образы Unsplash не загружаются
+
+Это нормально при просмотре через headless браузер/бот.
+В реальном браузере пользователей изображения загружаются напрямую с Unsplash CDN.
+Причина: `unoptimized={true}` для внешних URL в `listing-card.tsx` — изображения
+рендерятся на стороне браузера, не через сервер.
+
+### PgBouncer: SCRAM authentication error
+
+```bash
+# AUTH_TYPE должен быть scram-sha-256
+grep AUTH_TYPE /opt/milyi-dom/milyi-dom/docker-compose.yml
+# Перезапустить pgbouncer
+docker compose restart pgbouncer
 ```
 
 ---
 
-## Итоговая схема действий (кратко)
-
-```
-1. SSH → установить Docker (если нет)
-2. Загрузить проект в /var/www/milyi-dom/
-3. Изменить порты в docker-compose.yml → '127.0.0.1:PORT:PORT'
-4. Заполнить .env файлы (backend + frontend + корень)
-5. docker compose build
-6. docker compose up -d db redis typesense pgbouncer
-7. Применить миграции (docker compose run ...)
-8. docker compose up -d
-9. В FastPanel: создать 2 proxy-сайта (frontend:3000, backend:4001) + SSL
-10. Добавить custom Nginx config для WebSocket и Stripe webhook
-11. Проверить curl и открыть в браузере
-```
-
----
-
-## Что делает FastPanel, что делает Docker
-
-| Задача | Кто делает |
-|--------|-----------|
-| SSL сертификаты | **FastPanel** (автоматически Let's Encrypt) |
-| Nginx reverse proxy | **FastPanel** (через UI создание сайтов) |
-| Routing по доменам | **FastPanel** |
-| WebSocket / Stripe конфиг | Custom Nginx блок в FastPanel |
-| База данных PostgreSQL | **Docker** (отдельный контейнер) |
-| Redis, Typesense | **Docker** |
-| Backend (NestJS) | **Docker** |
-| Frontend (Next.js) | **Docker** |
-| Перезапуск при сбое | **Docker** (restart: unless-stopped) |
-| Другие ваши сайты | **FastPanel** (не затронуты) |
+*Дата обновления: 3 марта 2026 — отражает реальное состояние продакшн-сервера*
