@@ -45,7 +45,7 @@ function SuccessContent() {
         <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
           <Button
             onClick={() => router.push('/bookings')}
-            className="bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700"
+            className="bg-pine-600 hover:bg-pine-500 rounded-full"
           >
             Мои бронирования
           </Button>
@@ -66,7 +66,7 @@ export default function PaymentSuccessPage() {
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center">
-          <div className="h-8 w-8 animate-spin rounded-full border-4 border-rose-200 border-t-rose-600" />
+          <div className="h-8 w-8 animate-spin rounded-full border-4 border-pine-200 border-t-pine-600" />
         </div>
       }
     >

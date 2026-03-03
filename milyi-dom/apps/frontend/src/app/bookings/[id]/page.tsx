@@ -192,23 +192,23 @@ export default function BookingDetailPage() {
                   <div className="space-y-1 text-sm">
                     <div className="flex justify-between text-slate-600">
                       <span>
-                        {Number(booking.listing.basePrice).toLocaleString('ru-RU')} ₽ × {n}{' '}
+                        {decimalToNumber(booking.listing.basePrice).toLocaleString('ru-RU')} ₽ × {n}{' '}
                         {n === 1 ? 'ночь' : n < 5 ? 'ночи' : 'ночей'}
                       </span>
                       <span>
-                        {(Number(booking.listing.basePrice) * n).toLocaleString('ru-RU')} ₽
+                        {(decimalToNumber(booking.listing.basePrice) * n).toLocaleString('ru-RU')} ₽
                       </span>
                     </div>
-                    {booking.listing.cleaningFee && Number(booking.listing.cleaningFee) > 0 && (
+                    {booking.listing.cleaningFee && decimalToNumber(booking.listing.cleaningFee) > 0 && (
                       <div className="flex justify-between text-slate-600">
                         <span>Уборка</span>
-                        <span>{Number(booking.listing.cleaningFee).toLocaleString('ru-RU')} ₽</span>
+                        <span>{decimalToNumber(booking.listing.cleaningFee).toLocaleString('ru-RU')} ₽</span>
                       </div>
                     )}
-                    {booking.listing.serviceFee && Number(booking.listing.serviceFee) > 0 && (
+                    {booking.listing.serviceFee && decimalToNumber(booking.listing.serviceFee) > 0 && (
                       <div className="flex justify-between text-slate-600">
                         <span>Сервисный сбор</span>
-                        <span>{Number(booking.listing.serviceFee).toLocaleString('ru-RU')} ₽</span>
+                        <span>{decimalToNumber(booking.listing.serviceFee).toLocaleString('ru-RU')} ₽</span>
                       </div>
                     )}
                     <div className="flex justify-between border-t border-sand-200 pt-2 font-semibold text-slate-900">
