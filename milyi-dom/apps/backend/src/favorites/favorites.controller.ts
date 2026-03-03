@@ -8,6 +8,7 @@ import {
 } from '@nestjs/common';
 import { FavoritesService } from './favorites.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import type { CurrentUser as CurrentUserType } from '../auth/types/current-user.type.js';
 
@@ -29,11 +30,12 @@ export class FavoritesController {
   }
 
   @Get(':listingId/check')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(OptionalJwtAuthGuard)
   checkFavorite(
     @Param('listingId') listingId: string,
-    @CurrentUser() user: CurrentUserType,
+    @CurrentUser() user: CurrentUserType | null,
   ) {
+    if (!user) return { isFavorite: false };
     return this.favoritesService.isInFavorites(user.id, listingId);
   }
 
