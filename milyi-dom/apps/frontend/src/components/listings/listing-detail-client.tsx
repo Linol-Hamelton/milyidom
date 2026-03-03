@@ -789,6 +789,29 @@ export function ListingDetailClient({ listingId }: ListingDetailClientProps) {
                 </label>
               </div>
 
+              {bookingForm.checkIn && bookingForm.checkOut && (() => {
+                const nights = Math.ceil(
+                  (new Date(bookingForm.checkOut).getTime() - new Date(bookingForm.checkIn).getTime()) /
+                    (1000 * 60 * 60 * 24),
+                );
+                const pricePerNight = Number(listing.basePrice ?? 0);
+                const total = nights > 0 ? nights * pricePerNight : 0;
+                const fmt = (n: number) =>
+                  n.toLocaleString('ru-RU', { style: 'currency', currency: listing.currency ?? 'RUB', maximumFractionDigits: 0 });
+                return nights > 0 ? (
+                  <div className="rounded-2xl bg-pine-50 p-4 text-sm">
+                    <div className="flex justify-between text-slate-600">
+                      <span>{fmt(pricePerNight)} × {nights} ноч.</span>
+                      <span>{fmt(total)}</span>
+                    </div>
+                    <div className="mt-2 flex justify-between border-t border-pine-100 pt-2 font-semibold text-slate-900">
+                      <span>Итого</span>
+                      <span>{fmt(total)}</span>
+                    </div>
+                  </div>
+                ) : null;
+              })()}
+
               <Button type="submit" className="w-full">
                 Запросить бронирование
               </Button>
