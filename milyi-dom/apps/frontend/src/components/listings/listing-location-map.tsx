@@ -5,13 +5,13 @@ import { useEffect, useRef, useState } from 'react';
 interface ListingLocationMapProps {
   latitude: string | number;
   longitude: string | number;
-  city: string;
-  country: string;
+  city?: string;
+  country?: string;
 }
 
 const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
 
-export function ListingLocationMap({ latitude, longitude, city, country }: ListingLocationMapProps) {
+export function ListingLocationMap({ latitude, longitude }: ListingLocationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
