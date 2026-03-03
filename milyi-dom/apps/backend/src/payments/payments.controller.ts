@@ -39,33 +39,6 @@ export class PaymentsController {
     );
   }
 
-  @Patch(':bookingId/confirm')
-  @UseGuards(JwtAuthGuard)
-  confirmPayment(
-    @Param('bookingId') bookingId: string,
-    @CurrentUser() user: CurrentUserType,
-  ) {
-    return this.paymentsService.confirmPayment(bookingId, user.id);
-  }
-
-  @Get(':bookingId/status')
-  @UseGuards(JwtAuthGuard)
-  getPaymentStatus(
-    @Param('bookingId') bookingId: string,
-    @CurrentUser() user: CurrentUserType,
-  ) {
-    return this.paymentsService.getPaymentStatus(bookingId, user.id);
-  }
-
-  @Patch(':bookingId/refund')
-  @UseGuards(JwtAuthGuard)
-  refundPayment(
-    @Param('bookingId') bookingId: string,
-    @CurrentUser() user: CurrentUserType,
-  ) {
-    return this.paymentsService.refundPayment(bookingId, user.id);
-  }
-
   @Post('webhook')
   @HttpCode(200)
   async handleWebhook(
@@ -108,7 +81,7 @@ export class PaymentsController {
     res.send(csv);
   }
 
-  // ── Stripe Connect ───────────────────────────────────────────────────────────
+  // ── Stripe Connect (static routes — must come before :bookingId) ──────────
 
   @Post('connect/onboard')
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -121,5 +94,34 @@ export class PaymentsController {
   @UseGuards(JwtAuthGuard)
   getConnectStatus(@CurrentUser() user: CurrentUserType) {
     return this.paymentsService.getConnectStatus(user.id);
+  }
+
+  // ── Parametric routes (:bookingId) — must come AFTER all static routes ────
+
+  @Patch(':bookingId/confirm')
+  @UseGuards(JwtAuthGuard)
+  confirmPayment(
+    @Param('bookingId') bookingId: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.paymentsService.confirmPayment(bookingId, user.id);
+  }
+
+  @Get(':bookingId/status')
+  @UseGuards(JwtAuthGuard)
+  getPaymentStatus(
+    @Param('bookingId') bookingId: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.paymentsService.getPaymentStatus(bookingId, user.id);
+  }
+
+  @Patch(':bookingId/refund')
+  @UseGuards(JwtAuthGuard)
+  refundPayment(
+    @Param('bookingId') bookingId: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.paymentsService.refundPayment(bookingId, user.id);
   }
 }
