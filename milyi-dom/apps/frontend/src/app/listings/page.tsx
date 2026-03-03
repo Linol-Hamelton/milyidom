@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { ListingFilters } from '../../components/listings/listing-filters';
+import { CompactFilters } from '../../components/listings/compact-filters';
 import { ListingCard } from '../../components/listings/listing-card';
 import { ListingsMap } from '../../components/listings/listings-map';
 import { AiSearchBar } from '../../components/ui/ai-search-bar';
@@ -137,7 +137,7 @@ export default function ListingsPage() {
         </div>
 
         {/* Filters */}
-        <ListingFilters amenities={amenities} onApply={handleApplyFilters} initialFilters={filters} />
+        <CompactFilters amenities={amenities} onApply={handleApplyFilters} initialFilters={filters} />
 
         {/* View Toggle */}
         <div className="flex items-center justify-between">
