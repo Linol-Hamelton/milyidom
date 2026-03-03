@@ -34,6 +34,7 @@ import { listingBlurDataURL } from "../../lib/image-placeholder";
 import { FavoriteToggle } from "./favorite-toggle";
 import { ListingCard } from "./listing-card";
 import { ShareButton } from "../ui/share-button";
+import { ListingLocationMap } from "./listing-location-map";
 
 interface ListingDetailClientProps {
   listingId: string;
@@ -578,6 +579,21 @@ export function ListingDetailClient({ listingId }: ListingDetailClientProps) {
               ))}
             </div>
           </section>
+
+          {listing.latitude && listing.longitude && (
+            <section className="rounded-3xl bg-white p-6 shadow-soft">
+              <h2 className="mb-4 text-xl font-semibold text-slate-900">Расположение</h2>
+              <p className="mb-4 text-sm text-slate-500">
+                {listing.city}, {listing.country}
+              </p>
+              <ListingLocationMap
+                latitude={listing.latitude}
+                longitude={listing.longitude}
+                city={listing.city}
+                country={listing.country}
+              />
+            </section>
+          )}
 
           {reviewStats && (
             <section className="rounded-3xl bg-white p-6 shadow-soft">
