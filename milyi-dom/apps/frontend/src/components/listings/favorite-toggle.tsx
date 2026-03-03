@@ -80,12 +80,12 @@ export function FavoriteToggle({ listingId, appearance = "button" }: FavoriteTog
         : [...favorites, listingId];
       writeOfflineFavorites(next);
       setIsFavorite(next.includes(listingId));
-      toast.success(next.includes(listingId) ? "Saved to favorites." : "Removed from favorites.");
+      toast.success(next.includes(listingId) ? "Добавлено в избранное." : "Удалено из избранного.");
       return;
     }
 
     if (!isAuthenticated) {
-      toast.error("Please sign in to manage favorites.");
+      toast.error("Войдите, чтобы добавить в избранное.");
       return;
     }
 
@@ -94,11 +94,11 @@ export function FavoriteToggle({ listingId, appearance = "button" }: FavoriteTog
       if (isFavorite) {
         await removeFavorite(listingId);
         setIsFavorite(false);
-        toast.success("Removed from favorites.");
+        toast.success("Удалено из избранного.");
       } else {
         await addFavorite(listingId);
         setIsFavorite(true);
-        toast.success("Saved to favorites.");
+        toast.success("Добавлено в избранное.");
       }
     } catch (error) {
       const { message } = parseError(error);
@@ -139,7 +139,7 @@ export function FavoriteToggle({ listingId, appearance = "button" }: FavoriteTog
       className="inline-flex items-center gap-2"
     >
       <HeartIcon className="h-5 w-5" />
-      {isFavorite ? "In favorites" : "Save to favorites"}
+      {isFavorite ? "В избранном" : "В избранное"}
     </Button>
   );
 }

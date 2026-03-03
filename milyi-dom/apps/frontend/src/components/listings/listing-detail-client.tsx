@@ -574,7 +574,9 @@ export function ListingDetailClient({ listingId }: ListingDetailClientProps) {
                   className="flex items-center gap-3 rounded-2xl border border-slate-200 px-4 py-3 text-sm text-slate-700"
                 >
                   <span className="font-medium text-slate-900">{amenity.name}</span>
-                  <span className="text-xs text-slate-500">{amenity.category}</span>
+                  <span className="text-xs text-slate-500">
+                    {({ Connectivity: 'Связь', Comfort: 'Комфорт', Utilities: 'Бытовые', Essentials: 'Основное', Business: 'Работа', Convenience: 'Удобства' } as Record<string, string>)[amenity.category] ?? amenity.category}
+                  </span>
                 </div>
               ))}
             </div>
