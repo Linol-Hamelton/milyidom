@@ -9,7 +9,24 @@ interface ListingLocationMapProps {
   country?: string;
 }
 
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+const YANDEX_KEY = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY ?? '';
+
+// Minimal typing for the Yandex Maps 3.0 API we use
+interface YMapDestroyable {
+  addChild: (child: unknown) => void;
+  destroy: () => void;
+}
+
+interface YMaps3 {
+  ready: Promise<void>;
+  YMap: new (
+    container: HTMLElement,
+    params: { location: { center: [number, number]; zoom: number }; behaviors?: string[] },
+  ) => YMapDestroyable;
+  YMapDefaultSchemeLayer: new (params: Record<string, unknown>) => unknown;
+  YMapDefaultFeaturesLayer: new (params: Record<string, unknown>) => unknown;
+  YMapMarker: new (params: { coordinates: [number, number] }, element: HTMLElement) => unknown;
+}
 
 export function ListingLocationMap({ latitude, longitude }: ListingLocationMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -22,86 +39,48 @@ export function ListingLocationMap({ latitude, longitude }: ListingLocationMapPr
 
   useEffect(() => {
     if (!validCoords) return;
-    if (!MAPBOX_TOKEN) {
+    if (!YANDEX_KEY) {
       setError('no-token');
       return;
     }
 
-    let map: { remove: () => void } | null = null;
+    let map: YMapDestroyable | null = null;
 
     const init = async () => {
       try {
-        const mapboxgl = (await import('mapbox-gl')).default;
-
-        if (!document.querySelector('#mapbox-css')) {
-          const link = document.createElement('link');
-          link.id = 'mapbox-css';
-          link.rel = 'stylesheet';
-          link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css';
-          document.head.appendChild(link);
+        // Load Yandex Maps 3.0 script (only once per page)
+        if (!document.querySelector('#ymaps3-script')) {
+          await new Promise<void>((resolve, reject) => {
+            const s = document.createElement('script');
+            s.id = 'ymaps3-script';
+            s.src = `https://api-maps.yandex.ru/3.0/?apikey=${YANDEX_KEY}&lang=ru_RU`;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('Не удалось загрузить Яндекс Карты'));
+            document.head.appendChild(s);
+          });
         }
+
+        const ym = (window as unknown as { ymaps3: YMaps3 }).ymaps3;
+        await ym.ready;
 
         if (!containerRef.current) return;
 
-        (mapboxgl as { accessToken: string }).accessToken = MAPBOX_TOKEN;
+        const { YMap, YMapDefaultSchemeLayer, YMapDefaultFeaturesLayer, YMapMarker } = ym;
 
-        const mapInstance = new (mapboxgl as unknown as {
-          new (...args: unknown[]): unknown;
-          Map: new (opts: unknown) => {
-            remove: () => void;
-            on: (event: string, cb: () => void) => void;
-            getCanvas: () => { style: { cursor: string } };
-          };
-          Marker: new (opts?: unknown) => { setLngLat: (coords: [number, number]) => { addTo: (map: unknown) => void } };
-          NavigationControl: new () => unknown;
-        }).Map({
-          container: containerRef.current,
-          style: 'mapbox://styles/mapbox/streets-v12',
-          center: [lng, lat],
-          zoom: 13,
-          interactive: true,
-          scrollZoom: false,
+        const mapInstance = new YMap(containerRef.current, {
+          location: { center: [lng, lat], zoom: 13 },
+          behaviors: ['drag'],
         });
 
-        mapInstance.on('load', () => {
-          setLoaded(true);
+        mapInstance.addChild(new YMapDefaultSchemeLayer({}));
+        mapInstance.addChild(new YMapDefaultFeaturesLayer({}));
 
-          // Add a blurred circle for privacy (show area, not exact address)
-          (mapInstance as unknown as {
-            addSource: (id: string, source: unknown) => void;
-            addLayer: (layer: unknown) => void;
-          }).addSource('location-area', {
-            type: 'geojson',
-            data: {
-              type: 'FeatureCollection',
-              features: [{
-                type: 'Feature',
-                geometry: { type: 'Point', coordinates: [lng, lat] },
-                properties: {},
-              }],
-            },
-          });
+        const markerEl = document.createElement('div');
+        markerEl.className = 'h-4 w-4 rounded-full border-2 border-pine-600 bg-pine-400';
+        mapInstance.addChild(new YMapMarker({ coordinates: [lng, lat] }, markerEl));
 
-          (mapInstance as unknown as { addLayer: (layer: unknown) => void }).addLayer({
-            id: 'location-circle',
-            type: 'circle',
-            source: 'location-area',
-            paint: {
-              'circle-radius': 60,
-              'circle-color': '#4a7c59',
-              'circle-opacity': 0.18,
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#4a7c59',
-              'circle-stroke-opacity': 0.4,
-            },
-          });
-        });
-
-        // Add navigation control
-        const nav = new (mapboxgl as unknown as { NavigationControl: new () => unknown }).NavigationControl();
-        (mapInstance as unknown as { addControl: (ctrl: unknown, pos?: string) => void }).addControl(nav, 'top-right');
-
-        map = mapInstance as unknown as { remove: () => void };
+        map = mapInstance;
+        setLoaded(true);
       } catch (err) {
         console.error('Failed to load location map', err);
         setError('load-error');
@@ -111,7 +90,7 @@ export function ListingLocationMap({ latitude, longitude }: ListingLocationMapPr
     void init();
 
     return () => {
-      map?.remove();
+      map?.destroy();
     };
   }, [lat, lng, validCoords]);
 
@@ -140,6 +119,12 @@ export function ListingLocationMap({ latitude, longitude }: ListingLocationMapPr
         className="h-64 w-full overflow-hidden rounded-2xl"
         style={{ minHeight: 256 }}
       />
+      {/* CSS privacy circle overlay — shows approximate area, not exact address */}
+      {loaded && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+          <div className="h-32 w-32 rounded-full border-2 border-pine-600/40 bg-pine-600/10 backdrop-blur-sm" />
+        </div>
+      )}
       {!loaded && (
         <div className="absolute inset-0 flex items-center justify-center rounded-2xl bg-slate-100">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-pine-600 border-t-transparent" />

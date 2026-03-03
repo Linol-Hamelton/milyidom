@@ -9,164 +9,151 @@ interface ListingsMapProps {
   onSearchArea?: (lat: number, lng: number, radiusKm: number) => void;
 }
 
-// MapBox token — users must set NEXT_PUBLIC_MAPBOX_TOKEN in frontend .env
-const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? '';
+const YANDEX_KEY = process.env.NEXT_PUBLIC_YANDEX_MAPS_API_KEY ?? '';
+
+// Minimal typing for the Yandex Maps 3.0 API we use
+interface YMapInstance {
+  addChild: (child: unknown) => void;
+  destroy: () => void;
+  readonly center: [number, number]; // [lng, lat]
+  readonly bounds: [[number, number], [number, number]]; // [[minLng, minLat], [maxLng, maxLat]]
+}
+
+interface YMaps3 {
+  ready: Promise<void>;
+  import: (pkg: string) => Promise<Record<string, unknown>>;
+  YMap: new (
+    container: HTMLElement,
+    params: { location: { center: [number, number]; zoom: number }; behaviors?: string[] },
+  ) => YMapInstance;
+  YMapDefaultSchemeLayer: new (params: Record<string, unknown>) => unknown;
+  YMapDefaultFeaturesLayer: new (params: Record<string, unknown>) => unknown;
+  YMapMarker: new (params: { coordinates: [number, number] }, element: HTMLElement) => unknown;
+  YMapListener: new (params: { layer: string; onActionEnd?: () => void }) => unknown;
+}
+
+type ClusterFeature = {
+  type: 'Feature';
+  id: string;
+  geometry: { type: 'Point'; coordinates: [number, number] };
+  properties: Listing;
+};
 
 export function ListingsMap({ listings, onListingClick, onSearchArea }: ListingsMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<unknown>(null);
+  const mapRef = useRef<YMapInstance | null>(null);
   const [error, setError] = useState('');
   const [loaded, setLoaded] = useState(false);
   const [mapMoved, setMapMoved] = useState(false);
 
   useEffect(() => {
-    if (!MAPBOX_TOKEN) {
-      setError('Для отображения карты укажите NEXT_PUBLIC_MAPBOX_TOKEN в .env.local');
+    if (!YANDEX_KEY) {
+      setError('Для отображения карты укажите NEXT_PUBLIC_YANDEX_MAPS_API_KEY в .env.local');
       return;
     }
 
-    let map: {
-      remove: () => void;
-      on: (event: string, cb: () => void) => void;
-      addControl: (control: unknown) => void;
-      addSource: (id: string, source: unknown) => void;
-      addLayer: (layer: unknown) => void;
-      getSource: (id: string) => { setData: (data: unknown) => void } | undefined;
-    } | null = null;
+    let map: YMapInstance | null = null;
 
     const init = async () => {
       try {
-        const mapboxgl = (await import('mapbox-gl')).default;
-        // Dynamically inject MapBox CSS (only once)
-        if (!document.querySelector('#mapbox-css')) {
-          const link = document.createElement('link');
-          link.id = 'mapbox-css';
-          link.rel = 'stylesheet';
-          link.href = 'https://api.mapbox.com/mapbox-gl-js/v3.3.0/mapbox-gl.css';
-          document.head.appendChild(link);
+        // Load Yandex Maps 3.0 script (only once per page)
+        if (!document.querySelector('#ymaps3-script')) {
+          await new Promise<void>((resolve, reject) => {
+            const s = document.createElement('script');
+            s.id = 'ymaps3-script';
+            s.src = `https://api-maps.yandex.ru/3.0/?apikey=${YANDEX_KEY}&lang=ru_RU`;
+            s.onload = () => resolve();
+            s.onerror = () => reject(new Error('Не удалось загрузить Яндекс Карты'));
+            document.head.appendChild(s);
+          });
         }
+
+        const ym = (window as unknown as { ymaps3: YMaps3 }).ymaps3;
+        await ym.ready;
 
         if (!containerRef.current) return;
 
-        (mapboxgl as { accessToken: string }).accessToken = MAPBOX_TOKEN;
+        const {
+          YMap,
+          YMapDefaultSchemeLayer,
+          YMapDefaultFeaturesLayer,
+          YMapMarker,
+          YMapListener,
+        } = ym;
 
-        // Find map center from listings
-        const validListings = listings.filter(
-          (l) => l.latitude && l.longitude,
-        );
-        const center: [number, number] =
-          validListings.length > 0
-            ? [
-                parseFloat(validListings[0].longitude),
-                parseFloat(validListings[0].latitude),
-              ]
-            : [37.6173, 55.7558]; // Moscow default
+        const { YMapZoomControl } = (await ym.import('@yandex/ymaps3-controls@0.0.1')) as {
+          YMapZoomControl: new (params: Record<string, unknown>) => unknown;
+        };
 
-        map = new mapboxgl.Map({
-          container: containerRef.current,
-          style: 'mapbox://styles/mapbox/light-v11',
-          center,
-          zoom: 10,
-        }) as typeof map;
+        const { YMapClusterer, clusterByGrid } = (await ym.import(
+          '@yandex/ymaps3-clusterer@0.0.1',
+        )) as {
+          YMapClusterer: new (params: {
+            method: unknown;
+            features: ClusterFeature[];
+            marker: (feature: ClusterFeature) => unknown;
+            cluster: (coordinates: [number, number], features: ClusterFeature[]) => unknown;
+          }) => unknown;
+          clusterByGrid: (params: { gridSize: number }) => unknown;
+        };
 
-        mapRef.current = map;
+        const validListings = listings.filter((l) => l.latitude && l.longitude);
+        const centerLng =
+          validListings.length > 0 ? parseFloat(validListings[0].longitude) : 37.6173;
+        const centerLat =
+          validListings.length > 0 ? parseFloat(validListings[0].latitude) : 55.7558;
 
-        map!.addControl(new mapboxgl.NavigationControl({ showCompass: true }));
-
-        map!.on('load', () => {
-          setLoaded(true);
-
-          // Build GeoJSON from listings
-          const geojson = {
-            type: 'FeatureCollection' as const,
-            features: validListings.map((l) => ({
-              type: 'Feature' as const,
-              properties: {
-                id: l.id,
-                title: l.title,
-                price: l.basePrice,
-                rating: l.rating ?? 0,
-                currency: l.currency,
-              },
-              geometry: {
-                type: 'Point' as const,
-                coordinates: [parseFloat(l.longitude), parseFloat(l.latitude)],
-              },
-            })),
-          };
-
-          map!.addSource('listings', { type: 'geojson', data: geojson, cluster: true, clusterMaxZoom: 14, clusterRadius: 50 });
-
-          // Clustered circles
-          map!.addLayer({
-            id: 'clusters',
-            type: 'circle',
-            source: 'listings',
-            filter: ['has', 'point_count'],
-            paint: {
-              'circle-color': ['step', ['get', 'point_count'], '#84b49c', 10, '#4a8c6e', 30, '#2d6e52'],
-              'circle-radius': ['step', ['get', 'point_count'], 20, 10, 30, 30, 40],
-            },
-          });
-
-          // Cluster count labels
-          map!.addLayer({
-            id: 'cluster-count',
-            type: 'symbol',
-            source: 'listings',
-            filter: ['has', 'point_count'],
-            layout: {
-              'text-field': '{point_count_abbreviated}',
-              'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-              'text-size': 12,
-            },
-            paint: { 'text-color': '#fff' },
-          });
-
-          // Individual listing pins (price badges)
-          map!.addLayer({
-            id: 'unclustered-point',
-            type: 'circle',
-            source: 'listings',
-            filter: ['!', ['has', 'point_count']],
-            paint: {
-              'circle-color': '#fff',
-              'circle-radius': 18,
-              'circle-stroke-width': 2,
-              'circle-stroke-color': '#4a8c6e',
-            },
-          });
+        map = new YMap(containerRef.current, {
+          location: { center: [centerLng, centerLat], zoom: 10 },
+          behaviors: ['drag', 'scrollZoom', 'pinchZoom'],
         });
 
-        // Track map movement for "Search this area" button
-        map!.on('moveend', () => setMapMoved(true));
+        map.addChild(new YMapDefaultSchemeLayer({}));
+        map.addChild(new YMapDefaultFeaturesLayer({}));
+        map.addChild(new YMapZoomControl({}));
 
-        // Click on listing pin
-        map!.on('click', () => {
-          // handled via popup
-        });
-
-        // Add popups on click
-        if (typeof mapboxgl.Popup === 'function') {
-          const popup = new mapboxgl.Popup({ closeButton: false, closeOnClick: false });
-          map!.on('mouseenter', () => {
-            // add hover popup logic
-          });
-          void popup; // keep reference
-        }
-
-        // Add markers with price labels
-        for (const listing of validListings) {
+        const makeMarker = (listing: Listing) => {
           const el = document.createElement('div');
           el.className =
             'cursor-pointer rounded-full border-2 border-pine-600 bg-white px-2 py-1 text-xs font-bold text-pine-700 shadow-md hover:bg-pine-600 hover:text-white transition';
           el.textContent = `${Math.round(parseFloat(listing.basePrice))}₽`;
           el.addEventListener('click', () => onListingClick?.(listing));
+          return new YMapMarker(
+            { coordinates: [parseFloat(listing.longitude), parseFloat(listing.latitude)] },
+            el,
+          );
+        };
 
-          new mapboxgl.Marker({ element: el })
-            .setLngLat([parseFloat(listing.longitude), parseFloat(listing.latitude)])
-            .addTo(map as Parameters<typeof mapboxgl.Marker.prototype.addTo>[0]);
-        }
+        const features: ClusterFeature[] = validListings.map((l) => ({
+          type: 'Feature' as const,
+          id: l.id,
+          geometry: {
+            type: 'Point' as const,
+            coordinates: [parseFloat(l.longitude), parseFloat(l.latitude)] as [number, number],
+          },
+          properties: l,
+        }));
+
+        map.addChild(
+          new YMapClusterer({
+            method: clusterByGrid({ gridSize: 64 }),
+            features,
+            marker: (feature) => makeMarker(feature.properties),
+            cluster: (coordinates, clusterFeatures) => {
+              const el = document.createElement('div');
+              el.className =
+                'flex h-9 w-9 items-center justify-center rounded-full bg-pine-600 text-xs font-bold text-white shadow-md';
+              el.textContent = String(clusterFeatures.length);
+              return new YMapMarker({ coordinates }, el);
+            },
+          }),
+        );
+
+        // Track map movement for "Search this area" button
+        map.addChild(new YMapListener({ layer: 'any', onActionEnd: () => setMapMoved(true) }));
+
+        mapRef.current = map;
+        setLoaded(true);
       } catch (err) {
         setError(`Ошибка инициализации карты: ${String(err)}`);
       }
@@ -175,7 +162,7 @@ export function ListingsMap({ listings, onListingClick, onSearchArea }: Listings
     void init();
 
     return () => {
-      map?.remove();
+      map?.destroy();
       mapRef.current = null;
     };
   }, [listings, onListingClick]);
@@ -193,27 +180,18 @@ export function ListingsMap({ listings, onListingClick, onSearchArea }: Listings
 
   const handleSearchArea = () => {
     if (!onSearchArea || !mapRef.current) return;
-    const map = mapRef.current as {
-      getCenter: () => { lat: number; lng: number };
-      getBounds: () => {
-        getNorthEast: () => { lat: number; lng: number };
-        getCenter: () => { lat: number; lng: number };
-      };
-    };
-    const center = map.getCenter();
-    const bounds = map.getBounds();
-    const ne = bounds.getNorthEast();
-    // Compute radius as Haversine distance from center to NE corner
+    const [cLng, cLat] = mapRef.current.center;
+    const [, [maxLng, maxLat]] = mapRef.current.bounds;
     const toRad = (v: number) => (v * Math.PI) / 180;
     const R = 6371;
-    const dLat = toRad(ne.lat - center.lat);
-    const dLng = toRad(ne.lng - center.lng);
+    const dLat = toRad(maxLat - cLat);
+    const dLng = toRad(maxLng - cLng);
     const a =
       Math.sin(dLat / 2) ** 2 +
-      Math.cos(toRad(center.lat)) * Math.cos(toRad(ne.lat)) * Math.sin(dLng / 2) ** 2;
+      Math.cos(toRad(cLat)) * Math.cos(toRad(maxLat)) * Math.sin(dLng / 2) ** 2;
     const radiusKm = Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
     setMapMoved(false);
-    onSearchArea(center.lat, center.lng, Math.max(radiusKm, 5));
+    onSearchArea(cLat, cLng, Math.max(radiusKm, 5));
   };
 
   return (

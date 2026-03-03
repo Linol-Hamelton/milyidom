@@ -278,11 +278,12 @@ STRIPE_CONNECT_CLIENT_ID=ca_...
 # ── Redis ─────────────────────────────────────────────────────────────────────
 REDIS_URL=redis://redis:6379
 
-# ── Email (Resend / Postmark / SendGrid) ─────────────────────────────────────
-SMTP_HOST=smtp.resend.com
+# ── Email (Yandex 360 / Яндекс Почта для домена) ─────────────────────────────
+# SMTP_PASS = пароль приложения (Настройки → Безопасность → Пароли приложений)
+SMTP_HOST=smtp.yandex.ru
 SMTP_PORT=587
-SMTP_USER=resend
-SMTP_PASS=re_live_...
+SMTP_USER=noreply@milyidom.com
+SMTP_PASS=<пароль приложения Яндекс>
 
 # ── Typesense ─────────────────────────────────────────────────────────────────
 TYPESENSE_HOST=typesense
@@ -319,7 +320,7 @@ SENTRY_DSN=https://xxx@o0.ingest.sentry.io/0
 ```env
 NEXT_PUBLIC_API_URL=https://api.milyidom.com/api
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
-NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1IjoiL...
+NEXT_PUBLIC_YANDEX_MAPS_API_KEY=<UUID ключ из developer.tech.yandex.ru>
 NEXT_PUBLIC_FALLBACK_IMAGE_URL=/images/listing-1.jpg
 NEXT_PUBLIC_SENTRY_DSN=https://xxx@o0.ingest.sentry.io/0
 ```
@@ -330,7 +331,7 @@ NEXT_PUBLIC_SENTRY_DSN=https://xxx@o0.ingest.sentry.io/0
 # Пробрасываются как build args в docker-compose.yml
 NEXT_PUBLIC_API_URL=https://api.milyidom.com/api
 NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
-NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1IjoiL...
+NEXT_PUBLIC_YANDEX_MAPS_API_KEY=<UUID ключ из developer.tech.yandex.ru>
 GRAFANA_PASSWORD=<сильный пароль для Grafana>
 ```
 
@@ -475,7 +476,7 @@ scrape_configs:
 | `DEPLOY_PATH`             | `/srv/milyi-dom/milyi-dom`                 |
 | `NEXT_PUBLIC_API_URL`     | `https://api.milyidom.com/api`             |
 | `NEXT_PUBLIC_STRIPE_KEY`  | `pk_live_...`                              |
-| `NEXT_PUBLIC_MAPBOX_TOKEN`| `pk.eyJ1...`                               |
+| `NEXT_PUBLIC_YANDEX_MAPS_API_KEY` | UUID ключ из developer.tech.yandex.ru  |
 | `GRAFANA_PASSWORD`        | Пароль от Grafana                          |
 
 Пример `deploy.yml`:
@@ -596,7 +597,7 @@ rclone copy "$BACKUP_DIR/images_$DATE.tar.gz" r2:milyi-dom-backups/images/
 - [ ] Вход через VK OAuth работает
 - [ ] Создание объявления с загрузкой фото работает
 - [ ] Поиск и фильтрация работают
-- [ ] Карта объявлений (MapBox) отображается
+- [ ] Карта объявлений (Яндекс Карты) отображается
 - [ ] Бронирование работает end-to-end (Stripe тестовая карта `4242 4242 4242 4242`)
 - [ ] WebSocket (real-time сообщения) работает (открыть /messages в двух вкладках)
 - [ ] Сброс пароля работает (прийти письмо, ссылка работает)
@@ -650,10 +651,10 @@ docker exec milyi_dom_db cat /var/lib/postgresql/data/pg_hba.conf
 ### Frontend: карта не отображается (белый квадрат)
 
 ```bash
-# Проверить переменную MapBox в build args
-docker inspect milyi_dom_frontend | grep MAPBOX
-# Пересобрать с правильным токеном:
-NEXT_PUBLIC_MAPBOX_TOKEN=pk.eyJ1... docker compose build --no-cache frontend
+# Проверить переменную Yandex Maps в сборке
+docker inspect milyi_dom_frontend | grep YANDEX
+# Пересобрать с правильным ключом:
+NEXT_PUBLIC_YANDEX_MAPS_API_KEY=<key> docker compose build --no-cache frontend
 docker compose up -d --no-deps frontend
 ```
 
@@ -728,7 +729,7 @@ External services:
     Resend/SMTP ─────────────── transactional email
     Google/VK OAuth ─────────── social login
     Anthropic API ───────────── AI search & review summaries
-    MapBox ──────────────────── interactive maps
+    Yandex Maps JS API ──────── interactive maps
     Sentry ──────────────────── error tracking
 ```
 
