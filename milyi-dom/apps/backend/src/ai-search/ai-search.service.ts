@@ -85,7 +85,8 @@ export class AiSearchService {
         messages: [{ role: 'user', content: query }],
       });
 
-      const text = message.content[0].type === 'text' ? message.content[0].text : '';
+      const raw = message.content[0].type === 'text' ? message.content[0].text : '';
+      const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
       const parsed = JSON.parse(text) as {
         q: string;
         city?: string | null;
@@ -171,8 +172,9 @@ export class AiSearchService {
         ],
       });
 
-      const text =
+      const raw =
         message.content[0].type === 'text' ? message.content[0].text : '{}';
+      const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
       const result = JSON.parse(text) as { isFraud: boolean; reason: string };
       return { isFraud: result.isFraud ?? false, reason: result.reason ?? '' };
     } catch (err) {
@@ -242,7 +244,8 @@ Rules:
         messages: [{ role: 'user', content: prompt }],
       });
 
-      const text = message.content[0].type === 'text' ? message.content[0].text : '{}';
+      const raw = message.content[0].type === 'text' ? message.content[0].text : '{}';
+      const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
       const result = JSON.parse(text) as {
         suggestedPrice: number;
         minPrice: number;
