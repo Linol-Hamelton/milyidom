@@ -8,6 +8,7 @@ import { Skeleton } from '../../../components/ui/skeleton';
 import { Button } from '../../../components/ui/button';
 import { fetchAdminListings, moderateListing } from '../../../services/admin';
 import { parseError } from '../../../lib/api-client';
+import { decimalToNumber } from '../../../lib/format';
 import type { Listing, ListingStatus, PaginatedResponse } from '../../../types/api';
 
 const STATUSES: ListingStatus[] = ['DRAFT', 'PUBLISHED', 'UNLISTED'];
@@ -127,7 +128,7 @@ export default function AdminListingsPage() {
                         {listing.city}, {listing.country} · {listing.host.profile?.firstName ?? listing.host.email}
                       </p>
                       <p className="mt-0.5 text-xs text-slate-400">
-                        ₽{listing.basePrice}/ночь · ⭐ {listing.rating ?? '—'} ({listing.reviewCount})
+                        ₽{decimalToNumber(listing.basePrice).toLocaleString('ru-RU')}/ночь · ⭐ {listing.rating ?? '—'} ({listing.reviewCount})
                       </p>
                     </div>
 
