@@ -114,7 +114,7 @@ export default function HostDashboardPage() {
     const pendingBookings = bookings.filter((booking) => booking.status === "PENDING").length;
     const revenue = bookings
       .filter((booking) => booking.status === "CONFIRMED" || booking.status === "COMPLETED")
-      .reduce((total, booking) => total + Number(booking.totalPrice), 0);
+      .reduce((total, booking) => total + parseFloat(String(booking.totalPrice)), 0);
     const occupancyRate = published > 0 ? Math.round((activeBookings / (published * 30)) * 100) : 0;
     return { published, draft, activeBookings, pendingBookings, revenue, occupancyRate };
   }, [bookings, listings]);
@@ -217,20 +217,20 @@ export default function HostDashboardPage() {
 
   return (
     <RequireAuth roles={["HOST", "ADMIN"]}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-sand-50">
         <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
           <div className="mb-8">
             <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h1 className="text-3xl font-semibold text-gray-900">Кабинет хоста</h1>
-                <p className="mt-2 text-gray-600">
+                <h1 className="text-3xl font-semibold text-slate-900">Кабинет хоста</h1>
+                <p className="mt-2 text-slate-500">
                   Отслеживайте показатели объявлений, отвечайте гостям и синхронизируйте календарь.
                 </p>
               </div>
               <div className="flex gap-3">
                 <Button
                   onClick={() => router.push("/host/listings/new")}
-                  className="bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700"
+                  className="bg-pine-600 hover:bg-pine-500"
                 >
                   Создать объявление
                 </Button>
@@ -241,14 +241,14 @@ export default function HostDashboardPage() {
             </div>
           </div>
 
-          <div className="mb-8 border-b border-gray-200">
+          <div className="mb-8 border-b border-slate-200">
             <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Вкладки панели хоста">
               {TABS.map((tab) => {
                 const Icon = tab.icon;
                 const isActive = activeTab === tab.id;
                 const baseClasses = "flex items-center gap-2 whitespace-nowrap border-b-2 px-1 py-4 text-sm font-medium transition";
-                const activeClasses = "border-rose-500 text-rose-600";
-                const inactiveClasses = "border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700";
+                const activeClasses = "border-pine-600 text-pine-700";
+                const inactiveClasses = "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-700";
 
                 return (
                   <button
@@ -301,7 +301,7 @@ export default function HostDashboardPage() {
                           <p className="font-medium text-gray-900">{booking.listing.title}</p>
                           <p className="text-sm text-gray-500">
                             {renderDateRange(booking.checkIn, booking.checkOut)} ·{" "}
-                            {Number(booking.totalPrice).toLocaleString("ru-RU", {
+                            {parseFloat(String(booking.totalPrice)).toLocaleString("ru-RU", {
                               style: "currency",
                               currency: booking.currency,
                               maximumFractionDigits: 0,
@@ -364,7 +364,7 @@ export default function HostDashboardPage() {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-gray-900">
-                              {Number(booking.totalPrice).toLocaleString("ru-RU", {
+                              {parseFloat(String(booking.totalPrice)).toLocaleString("ru-RU", {
                                 style: "currency",
                                 currency: booking.currency,
                                 maximumFractionDigits: 0,
