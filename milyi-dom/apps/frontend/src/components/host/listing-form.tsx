@@ -125,12 +125,18 @@ export function ListingForm({ amenities, initialValues, listingId, onSubmit, sub
         </label>
         <label className="flex flex-col gap-2 text-sm text-slate-600">
           Тип жилья
-          <Input
+          <select
             value={values.propertyType}
             onChange={(event) => handleChange('propertyType', event.target.value)}
-            placeholder="квартира"
             required
-          />
+            className="block w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-slate-900 focus:border-pine-400 focus:outline-none focus:ring-1 focus:ring-pine-400"
+          >
+            <option value="apartment">Квартира</option>
+            <option value="house">Дом</option>
+            <option value="villa">Вилла</option>
+            <option value="loft">Лофт</option>
+            <option value="studio">Студия</option>
+          </select>
         </label>
         <label className="sm:col-span-2 flex flex-col gap-2 text-sm text-slate-600">
           Краткое описание
