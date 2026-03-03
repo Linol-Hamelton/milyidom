@@ -19,6 +19,7 @@ import { CreateListingDto } from './dto/create-listing.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
 import { SearchListingsDto } from './dto/search-listings.dto';
 import { CheckAvailabilityDto } from './dto/check-availability.dto';
+import { CreatePriceOverrideDto } from './dto/create-price-override.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -208,9 +209,9 @@ export class ListingsController {
   createPriceOverride(
     @Param('id') id: string,
     @CurrentUser() user: CurrentUserType,
-    @Body() body: { label: string; startDate: string; endDate: string; price: number },
+    @Body() dto: CreatePriceOverrideDto,
   ) {
-    return this.listingsService.createPriceOverride(id, user.id, body);
+    return this.listingsService.createPriceOverride(id, user.id, dto);
   }
 
   @Delete(':id/price-overrides/:overrideId')

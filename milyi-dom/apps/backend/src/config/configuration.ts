@@ -18,6 +18,9 @@ export default () => {
   return {
     nodeEnv,
     port: parseInt(process.env.PORT || '4001', 10),
+    app: {
+      apiUrl: process.env.API_URL || 'https://api.milyidom.com',
+    },
     database: {
       url: process.env.DATABASE_URL,
     },
@@ -38,6 +41,11 @@ export default () => {
       publishableKey: process.env.STRIPE_PUBLISHABLE_KEY,
       webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
       connectClientId: process.env.STRIPE_CONNECT_CLIENT_ID,
+    },
+    yookassa: {
+      shopId: process.env.YOOKASSA_SHOP_ID ?? '',
+      secretKey: process.env.YOOKASSA_SECRET_KEY ?? '',
+      payoutToken: process.env.YOOKASSA_PAYOUT_TOKEN ?? '',
     },
     redis: {
       url: process.env.REDIS_URL || 'redis://localhost:6379',

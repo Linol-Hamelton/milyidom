@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException, ForbiddenException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import * as nodeIcal from 'node-ical';
 import icalGenerator, { ICalCalendar } from 'ical-generator';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,7 +8,10 @@ import { PrismaService } from '../prisma/prisma.service';
 export class IcalService {
   private readonly logger = new Logger(IcalService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {}
 
   // ── Export: generate iCal feed for a listing ──────────────────────────────
 
@@ -221,5 +225,17 @@ export class IcalService {
       where: { id: listingId },
       data: { icalSyncUrls: listing.icalSyncUrls.filter((u) => u !== urlToRemove) },
     });
+  }
+
+  /** Return the public iCal feed URL for a host's listing. */
+  async getFeedUrl(listingId: string, hostId: string): Promise<{ feedUrl: string }> {
+    const listing = await this.prisma.listing.findUnique({
+      where: { id: listingId },
+      select: { hostId: true, icalToken: true },
+    });
+    if (!listing) throw new NotFoundException('Listing not found');
+    if (listing.hostId !== hostId) throw new ForbiddenException();
+    const apiBase = this.config.get<string>('app.apiUrl') ?? 'https://api.milyidom.com';
+    return { feedUrl: `${apiBase}/api/ical/feed/${listing.icalToken}` };
   }
 }

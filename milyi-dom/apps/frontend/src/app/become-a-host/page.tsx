@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BecomeHostCta } from '../../components/become-host-cta';
 
 export const metadata: Metadata = {
   title: 'Стать хостом — Милый Дом',
@@ -89,12 +90,7 @@ export default function BecomeAHostPage() {
             Сдавайте квартиру, дом или комнату на Милом Доме. Простой старт, поддержка 24/7 и выплаты без задержек.
           </p>
           <div className="mt-10 flex flex-wrap justify-center gap-4">
-            <Link
-              href="/host/listings/new"
-              className="rounded-full bg-white px-8 py-3 text-base font-semibold text-pine-700 shadow-lg transition hover:bg-pine-50"
-            >
-              Создать объявление →
-            </Link>
+            <BecomeHostCta />
             <Link
               href="/auth/register"
               className="rounded-full border border-white/50 px-8 py-3 text-base font-medium text-white transition hover:bg-white/10"
@@ -206,12 +202,9 @@ export default function BecomeAHostPage() {
           <p className="mt-3 text-pine-200">
             Создайте первое объявление бесплатно прямо сейчас.
           </p>
-          <Link
-            href="/host/listings/new"
-            className="mt-8 inline-block rounded-full bg-white px-10 py-3 text-base font-semibold text-pine-700 shadow-lg transition hover:bg-pine-50"
-          >
-            Создать объявление
-          </Link>
+          <div className="mt-8 flex justify-center">
+            <BecomeHostCta className="rounded-full bg-white px-10 py-3 text-base font-semibold text-pine-700 shadow-lg transition hover:bg-pine-50 disabled:opacity-60" />
+          </div>
         </div>
       </section>
     </main>

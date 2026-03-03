@@ -2,32 +2,36 @@ import {
   BadRequestException,
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BookingStatus, PaymentStatus, Prisma } from '@prisma/client';
-import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { MarkPaymentDto } from './dto/mark-payment.dto';
-
-const stripeApiVersion: Stripe.StripeConfig['apiVersion'] = '2025-08-27.basil';
+import { YooKassaClient, type YooKassaPayment } from './yookassa.client';
 
 @Injectable()
 export class PaymentsService {
-  private readonly stripe?: Stripe;
-  private readonly webhookSecret?: string;
+  private readonly logger = new Logger(PaymentsService.name);
+  private readonly yookassa?: YooKassaClient;
+  private readonly frontendUrl: string;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly configService: ConfigService,
   ) {
-    const secret = this.configService.get<string>('stripe.secretKey');
-    if (secret) {
-      this.stripe = new Stripe(secret, { apiVersion: stripeApiVersion });
+    const shopId = this.configService.get<string>('yookassa.shopId');
+    const secretKey = this.configService.get<string>('yookassa.secretKey');
+    const payoutToken = this.configService.get<string>('yookassa.payoutToken') ?? '';
+
+    if (shopId && secretKey) {
+      this.yookassa = new YooKassaClient(shopId, secretKey, payoutToken);
     }
-    this.webhookSecret =
-      this.configService.get<string>('stripe.webhookSecret') ?? undefined;
+
+    this.frontendUrl =
+      this.configService.get<string>('frontend.url') ?? 'https://milyidom.com';
   }
 
   async createPaymentIntent(userId: string, dto: CreatePaymentIntentDto) {
@@ -54,43 +58,36 @@ export class PaymentsService {
       throw new ForbiddenException('Booking is not payable');
     }
 
-    const amount = Math.round(Number(booking.totalPrice) * 100);
-    const currency = booking.currency.toLowerCase();
+    const amountRub = Number(booking.totalPrice);
+    const returnUrl = `${this.frontendUrl}/bookings/${booking.id}?payment=success`;
+    const description = `Бронирование: ${booking.listing.title}`;
 
-    if (this.stripe) {
-      const intent = await this.stripe.paymentIntents.create({
-        amount,
-        currency,
-        metadata: {
-          bookingId: booking.id,
-        },
-        description: `Booking for ${booking.listing.title}`,
-      });
+    if (this.yookassa) {
+      const { id: providerId, confirmationUrl } =
+        await this.yookassa.createPayment(amountRub, booking.id, description, returnUrl);
 
       const record = await this.prisma.payment.upsert({
         where: { bookingId: booking.id },
         update: {
-          providerId: intent.id,
+          providerId,
           status: PaymentStatus.PENDING,
           amount: booking.totalPrice,
           currency: booking.currency,
         },
         create: {
           bookingId: booking.id,
-          providerId: intent.id,
+          providerId,
           status: PaymentStatus.PENDING,
           amount: booking.totalPrice,
           currency: booking.currency,
-          method: 'card',
+          method: 'yookassa',
         },
       });
 
-      return {
-        clientSecret: intent.client_secret,
-        payment: record,
-      };
+      return { confirmationUrl, clientSecret: null, payment: record };
     }
 
+    // YooKassa not configured — store offline payment for manual processing
     const record = await this.prisma.payment.upsert({
       where: { bookingId: booking.id },
       update: {
@@ -109,9 +106,10 @@ export class PaymentsService {
     });
 
     return {
+      confirmationUrl: null,
       clientSecret: null,
       payment: record,
-      message: 'Stripe не настроен. Платёж записан как ручной.',
+      message: 'YooKassa не настроена. Платёж записан как ручной.',
     };
   }
 
@@ -134,10 +132,6 @@ export class PaymentsService {
 
     if (!booking.payment) {
       throw new NotFoundException('Payment not found');
-    }
-
-    if (this.stripe) {
-      await this.stripe.paymentIntents.capture(booking.payment.providerId);
     }
 
     return this.prisma.payment.update({
@@ -190,134 +184,109 @@ export class PaymentsService {
       throw new NotFoundException('Payment not found');
     }
 
-    if (this.stripe) {
-      await this.stripe.refunds.create({
-        payment_intent: booking.payment.providerId,
-      });
+    if (this.yookassa) {
+      const amountRub = Number(booking.payment.amount);
+      await this.yookassa.refundPayment(booking.payment.providerId, amountRub);
     }
 
     return this.prisma.payment.update({
       where: { bookingId },
-      data: {
-        status: PaymentStatus.REFUNDED,
-      },
+      data: { status: PaymentStatus.REFUNDED },
     });
   }
 
-  async handleWebhook(signature: string | undefined, rawBody: Buffer) {
-    if (!this.stripe || !this.webhookSecret) {
-      return;
-    }
+  // ── YooKassa Webhook ──────────────────────────────────────────────────────
 
-    if (!signature) {
-      throw new BadRequestException('Missing Stripe signature header');
-    }
-
-    let event: Stripe.Event;
-
+  async handleWebhook(rawBody: Buffer) {
+    // YooKassa sends JSON — parse event object
+    let event: { type: string; object: YooKassaPayment };
     try {
-      event = this.stripe.webhooks.constructEvent(
-        rawBody,
-        signature,
-        this.webhookSecret,
-      );
+      event = JSON.parse(rawBody.toString()) as {
+        type: string;
+        object: YooKassaPayment;
+      };
     } catch {
-      throw new BadRequestException('Invalid Stripe webhook signature');
+      throw new BadRequestException('Invalid webhook payload');
     }
 
-    switch (event.type) {
-      case 'payment_intent.succeeded': {
-        const { object } = event.data;
-        if (!this.isPaymentIntent(object)) {
-          throw new BadRequestException('Unexpected payment_intent payload');
-        }
+    const { type, object } = event;
+
+    switch (type) {
+      case 'payment.succeeded':
         await this.handlePaymentSucceeded(object);
         break;
-      }
-      case 'payment_intent.payment_failed': {
-        const { object } = event.data;
-        if (!this.isPaymentIntent(object)) {
-          throw new BadRequestException('Unexpected payment_intent payload');
-        }
+      case 'payment.canceled':
         await this.handlePaymentFailed(object);
         break;
-      }
       default:
+        this.logger.debug(`Unhandled YooKassa event: ${type}`);
         break;
     }
   }
 
-  private isPaymentIntent(
-    payload: Stripe.Event.Data.Object,
-  ): payload is Stripe.PaymentIntent {
-    return (
-      typeof payload === 'object' &&
-      payload !== null &&
-      'object' in payload &&
-      (payload as { object?: string }).object === 'payment_intent'
-    );
-  }
+  private async handlePaymentSucceeded(payment: YooKassaPayment) {
+    const bookingId = payment.metadata?.bookingId;
+    if (!bookingId) return;
 
-  private async handlePaymentSucceeded(intent: Stripe.PaymentIntent) {
-    const bookingId = intent.metadata?.bookingId;
-    if (!bookingId) {
-      return;
-    }
-
-    const amountCents = intent.amount_received ?? intent.amount ?? 0;
-    const amountDecimal = new Prisma.Decimal(amountCents).div(100);
-    const receiptUrl = this.extractReceiptUrl(intent);
+    const amountDecimal = new Prisma.Decimal(payment.amount.value);
 
     await this.prisma.payment.upsert({
       where: { bookingId },
       update: {
         status: PaymentStatus.PAID,
         amount: amountDecimal,
-        currency: intent.currency?.toUpperCase() ?? 'USD',
-        receiptUrl,
+        currency: payment.amount.currency,
         capturedAt: new Date(),
       },
       create: {
         bookingId,
-        providerId: intent.id,
+        providerId: payment.id,
         status: PaymentStatus.PAID,
         amount: amountDecimal,
-        currency: intent.currency?.toUpperCase() ?? 'USD',
-        method: intent.payment_method_types?.[0] ?? 'card',
+        currency: payment.amount.currency,
+        method: 'yookassa',
         capturedAt: new Date(),
       },
     });
   }
 
-  private async handlePaymentFailed(intent: Stripe.PaymentIntent) {
-    const bookingId = intent.metadata?.bookingId;
-    if (!bookingId) {
-      return;
-    }
+  private async handlePaymentFailed(payment: YooKassaPayment) {
+    const bookingId = payment.metadata?.bookingId;
+    if (!bookingId) return;
 
     await this.prisma.payment.updateMany({
       where: { bookingId },
-      data: {
-        status: PaymentStatus.FAILED,
-      },
+      data: { status: PaymentStatus.FAILED },
     });
   }
 
-  private extractReceiptUrl(intent: Stripe.PaymentIntent): string | undefined {
-    const chargesContainer = (
-      intent as Stripe.PaymentIntent & {
-        charges?: Stripe.ApiList<Stripe.Charge>;
-      }
-    ).charges;
+  // ── Host Payout Phone (YooKassa SBP) ─────────────────────────────────────
 
-    if (!chargesContainer || !Array.isArray(chargesContainer.data)) {
-      return undefined;
+  async savePayoutPhone(hostId: string, phone: string): Promise<{ phone: string }> {
+    const normalized = phone.replace(/\s+/g, '').replace(/^8/, '+7');
+    if (!/^\+7\d{10}$/.test(normalized)) {
+      throw new BadRequestException('Неверный формат телефона. Используйте +7XXXXXXXXXX');
     }
-
-    const [firstCharge] = chargesContainer.data;
-    const url = firstCharge?.receipt_url;
-    return typeof url === 'string' ? url : undefined;
+    await this.prisma.user.update({
+      where: { id: hostId },
+      data: { payoutPhone: normalized },
+    });
+    return { phone: normalized };
   }
+
+  async getPayoutStatus(hostId: string): Promise<{ hasPayoutMethod: boolean; phone: string | null }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: hostId },
+      select: { payoutPhone: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    return {
+      hasPayoutMethod: !!user.payoutPhone,
+      phone: user.payoutPhone,
+    };
+  }
+
+  // ── Host Earnings ─────────────────────────────────────────────────────────
 
   async getHostEarnings(
     hostId: string,
@@ -439,78 +408,5 @@ export class PaymentsService {
     });
 
     return record;
-  }
-
-  // ── Stripe Connect (host onboarding & payouts) ───────────────────────────────
-
-  /**
-   * Create a Stripe Connect onboarding link for a host.
-   * Host visits this URL to connect their bank account.
-   */
-  async createConnectOnboardingLink(
-    hostId: string,
-  ): Promise<{ url: string }> {
-    const host = await this.prisma.user.findUnique({
-      where: { id: hostId },
-      select: { email: true, stripeConnectId: true },
-    });
-    if (!host) throw new NotFoundException('User not found');
-
-    if (!this.stripe) {
-      return { url: '#stripe-not-configured' };
-    }
-
-    let accountId = host.stripeConnectId;
-
-    if (!accountId) {
-      const account = await this.stripe.accounts.create({
-        type: 'express',
-        email: host.email,
-        capabilities: {
-          card_payments: { requested: true },
-          transfers: { requested: true },
-        },
-        metadata: { hostId },
-      });
-      accountId = account.id;
-      await this.prisma.user.update({
-        where: { id: hostId },
-        data: { stripeConnectId: accountId },
-      });
-    }
-
-    const frontendUrl =
-      this.configService.get<string>('frontend.url') ?? 'http://localhost:3000';
-
-    const link = await this.stripe.accountLinks.create({
-      account: accountId,
-      refresh_url: `${frontendUrl}/host/payouts?refresh=true`,
-      return_url: `${frontendUrl}/host/payouts?connected=true`,
-      type: 'account_onboarding',
-    });
-
-    return { url: link.url };
-  }
-
-  /** Get the Connect account status for a host */
-  async getConnectStatus(
-    hostId: string,
-  ): Promise<{ connected: boolean; chargesEnabled: boolean; detailsSubmitted: boolean }> {
-    const host = await this.prisma.user.findUnique({
-      where: { id: hostId },
-      select: { stripeConnectId: true },
-    });
-    if (!host) throw new NotFoundException('User not found');
-
-    if (!this.stripe || !host.stripeConnectId) {
-      return { connected: false, chargesEnabled: false, detailsSubmitted: false };
-    }
-
-    const account = await this.stripe.accounts.retrieve(host.stripeConnectId);
-    return {
-      connected: true,
-      chargesEnabled: account.charges_enabled,
-      detailsSubmitted: account.details_submitted,
-    };
   }
 }

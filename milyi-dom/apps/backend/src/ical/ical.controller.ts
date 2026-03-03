@@ -42,6 +42,16 @@ export class IcalController {
     res.send(cal.toString());
   }
 
+  /** Host: get the iCal feed URL for their listing */
+  @Get('feed-url/:listingId')
+  @UseGuards(JwtAuthGuard)
+  getFeedUrl(
+    @Param('listingId') listingId: string,
+    @CurrentUser() user: CurrentUserType,
+  ) {
+    return this.icalService.getFeedUrl(listingId, user.id);
+  }
+
   /** Public: get blocked/booked dates for a listing (for booking widget calendar) */
   @Get('blocked/:listingId')
   getBlockedDates(@Param('listingId') listingId: string) {

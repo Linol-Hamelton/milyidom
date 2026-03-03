@@ -435,4 +435,20 @@ export class UsersService {
       select: { id: true },
     });
   }
+
+  async becomeHost(userId: string) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: { role: true },
+    });
+    if (!user) throw new NotFoundException('User not found');
+    if (user.role !== 'GUEST') {
+      throw new BadRequestException('Вы уже являетесь хостом или администратором');
+    }
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { role: 'HOST' },
+      select: { id: true, email: true, role: true },
+    });
+  }
 }

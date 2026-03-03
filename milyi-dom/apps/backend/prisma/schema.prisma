@@ -58,8 +58,11 @@ model User {
   // OAuth providers
   googleId         String?        @unique
   vkId             String?        @unique
-  // Stripe Connect (host payouts)
+  // Stripe Connect (host payouts) — kept for migration compatibility
   stripeConnectId  String?        @unique
+  // YooKassa payouts
+  yookassaPayoutId String?
+  payoutPhone      String?        // Phone for SBP payouts (+7XXXXXXXXXX)
   // Two-factor authentication (TOTP)
   twoFactorSecret  String?
   twoFactorEnabled Boolean        @default(false)
@@ -118,7 +121,7 @@ model Listing {
   basePrice     Decimal          @db.Decimal(10, 2)
   cleaningFee   Decimal?         @db.Decimal(10, 2)
   serviceFee    Decimal?         @db.Decimal(10, 2)
-  currency      String           @default("USD")
+  currency      String           @default("RUB")
   status        ListingStatus    @default(PUBLISHED)
   featured      Boolean          @default(false)
   instantBook   Boolean          @default(false)
@@ -222,7 +225,7 @@ model Booking {
   infants    Int           @default(0)
   pets       Int           @default(0)
   totalPrice Decimal       @db.Decimal(10, 2)
-  currency   String        @default("USD")
+  currency   String        @default("RUB")
   payment    Payment?
   listing    Listing       @relation(fields: [listingId], references: [id])
   guest      User          @relation("BookingGuest", fields: [guestId], references: [id])
@@ -276,7 +279,7 @@ model Payment {
   providerId String
   status     PaymentStatus @default(PENDING)
   amount     Decimal       @db.Decimal(10, 2)
-  currency   String        @default("USD")
+  currency   String        @default("RUB")
   method     String
   receiptUrl String?
   capturedAt DateTime?

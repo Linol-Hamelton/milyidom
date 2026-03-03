@@ -4,7 +4,6 @@ import {
   Body,
   Controller,
   Get,
-  Headers,
   HttpCode,
   Param,
   Patch,
@@ -17,6 +16,7 @@ import {
 import { Role } from '@prisma/client';
 import { PaymentsService } from './payments.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
+import { MarkPaymentDto } from './dto/mark-payment.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -27,26 +27,22 @@ import type { CurrentUser as CurrentUserType } from '../auth/types/current-user.
 export class PaymentsController {
   constructor(private readonly paymentsService: PaymentsService) {}
 
+  // ── Static routes MUST come before parametric routes (:bookingId) ─────────
+
   @Post('intent')
   @UseGuards(JwtAuthGuard)
   createPaymentIntent(
     @CurrentUser() user: CurrentUserType,
     @Body() createPaymentIntentDto: CreatePaymentIntentDto,
   ) {
-    return this.paymentsService.createPaymentIntent(
-      user.id,
-      createPaymentIntentDto,
-    );
+    return this.paymentsService.createPaymentIntent(user.id, createPaymentIntentDto);
   }
 
   @Post('webhook')
   @HttpCode(200)
-  async handleWebhook(
-    @Req() request: RawBodyRequest<Request>,
-    @Headers('stripe-signature') signature?: string,
-  ) {
+  async handleWebhook(@Req() request: RawBodyRequest<Request>) {
     const rawBody = request.rawBody ?? (request.body as Buffer);
-    await this.paymentsService.handleWebhook(signature, rawBody);
+    await this.paymentsService.handleWebhook(rawBody);
     return { received: true };
   }
 
@@ -68,35 +64,32 @@ export class PaymentsController {
     @Query('period') period: 'week' | 'month' | 'year' = 'month',
     @Res() res: Response,
   ) {
-    const csv = await this.paymentsService.exportTransactionsCsv(
-      user.id,
-      period,
-    );
+    const csv = await this.paymentsService.exportTransactionsCsv(user.id, period);
     const filename = `transactions-${period}-${new Date().toISOString().slice(0, 10)}.csv`;
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${filename}"`,
-    );
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.send(csv);
   }
 
-  // ── Stripe Connect (static routes — must come before :bookingId) ──────────
+  // ── YooKassa payout phone (replaces Stripe Connect) ───────────────────────
 
-  @Post('connect/onboard')
+  @Patch('payout-phone')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(Role.HOST, Role.ADMIN)
-  createConnectOnboardingLink(@CurrentUser() user: CurrentUserType) {
-    return this.paymentsService.createConnectOnboardingLink(user.id);
+  savePayoutPhone(
+    @CurrentUser() user: CurrentUserType,
+    @Body('phone') phone: string,
+  ) {
+    return this.paymentsService.savePayoutPhone(user.id, phone);
   }
 
-  @Get('connect/status')
+  @Get('payout-status')
   @UseGuards(JwtAuthGuard)
-  getConnectStatus(@CurrentUser() user: CurrentUserType) {
-    return this.paymentsService.getConnectStatus(user.id);
+  getPayoutStatus(@CurrentUser() user: CurrentUserType) {
+    return this.paymentsService.getPayoutStatus(user.id);
   }
 
-  // ── Parametric routes (:bookingId) — must come AFTER all static routes ────
+  // ── Parametric routes (:bookingId) — MUST come AFTER all static routes ────
 
   @Patch(':bookingId/confirm')
   @UseGuards(JwtAuthGuard)
@@ -123,5 +116,16 @@ export class PaymentsController {
     @CurrentUser() user: CurrentUserType,
   ) {
     return this.paymentsService.refundPayment(bookingId, user.id);
+  }
+
+  @Patch(':bookingId/mark')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(Role.HOST, Role.ADMIN)
+  markPayment(
+    @Param('bookingId') bookingId: string,
+    @CurrentUser() user: CurrentUserType,
+    @Body() dto: MarkPaymentDto,
+  ) {
+    return this.paymentsService.markPayment(user.id, bookingId, dto);
   }
 }

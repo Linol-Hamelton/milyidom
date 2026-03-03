@@ -2,38 +2,44 @@ import { Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
 import { ConfigService } from '@nestjs/config';
-import Stripe from 'stripe';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailQueueService } from './email-queue.service';
 import { PAYOUT_QUEUE, PAYOUT_JOB } from './queue.constants';
+import { YooKassaClient } from '../payments/yookassa.client';
 
 export interface PayoutJobData {
   bookingId: string;
   hostId: string;
-  /** Amount in the smallest currency unit (kopecks / cents) */
+  /** Amount in kopecks (smallest unit) */
   amountCents: number;
   currency: string;
 }
 
-const STRIPE_API_VERSION: Stripe.StripeConfig['apiVersion'] = '2025-08-27.basil';
+/** Platform commission rate: 10% */
+const PLATFORM_FEE_RATE = 0.10;
 
 @Processor(PAYOUT_QUEUE)
 export class PayoutProcessor {
   private readonly logger = new Logger(PayoutProcessor.name);
-  private readonly stripe: Stripe | null;
+  private readonly yookassa: YooKassaClient | null;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly emailQueue: EmailQueueService,
     private readonly config: ConfigService,
   ) {
-    const key = config.get<string>('stripe.secretKey');
-    this.stripe = key ? new Stripe(key, { apiVersion: STRIPE_API_VERSION }) : null;
+    const shopId = config.get<string>('yookassa.shopId');
+    const secretKey = config.get<string>('yookassa.secretKey');
+    const payoutToken = config.get<string>('yookassa.payoutToken') ?? '';
+    this.yookassa =
+      shopId && secretKey
+        ? new YooKassaClient(shopId, secretKey, payoutToken)
+        : null;
   }
 
   @Process(PAYOUT_JOB.PROCESS)
   async handlePayout(job: Job<PayoutJobData>) {
-    const { bookingId, hostId, amountCents, currency } = job.data;
+    const { bookingId, hostId, amountCents } = job.data;
 
     this.logger.debug(
       `Processing payout for booking ${bookingId} → host ${hostId}`,
@@ -43,7 +49,7 @@ export class PayoutProcessor {
       where: { id: hostId },
       select: {
         email: true,
-        stripeConnectId: true,
+        payoutPhone: true,
         profile: { select: { firstName: true, lastName: true } },
       },
     });
@@ -53,34 +59,35 @@ export class PayoutProcessor {
       return;
     }
 
-    // Platform fee: 3%
-    const platformFeeCents = Math.round(amountCents * 0.03);
+    // Platform fee: 10%
+    const platformFeeCents = Math.round(amountCents * PLATFORM_FEE_RATE);
     const hostAmountCents = amountCents - platformFeeCents;
+    const hostAmountRub = hostAmountCents / 100;
 
-    if (this.stripe && host.stripeConnectId) {
+    if (this.yookassa && host.payoutPhone) {
       try {
-        await this.stripe.transfers.create({
-          amount: hostAmountCents,
-          currency: currency.toLowerCase(),
-          destination: host.stripeConnectId,
-          transfer_group: bookingId,
-          metadata: { bookingId, hostId },
-        });
+        await this.yookassa.createPayout(
+          hostAmountRub,
+          host.payoutPhone,
+          `Выплата за бронирование ${bookingId}`,
+        );
         this.logger.log(
-          `Stripe transfer created for booking ${bookingId}: ${hostAmountCents} ${currency} → ${host.stripeConnectId}`,
+          `YooKassa payout created: booking ${bookingId} → ${host.payoutPhone}, ${hostAmountRub} RUB (platform fee: ${platformFeeCents / 100} RUB)`,
         );
       } catch (err) {
-        this.logger.error(`Stripe transfer failed for booking ${bookingId}: ${String(err)}`);
+        this.logger.error(
+          `YooKassa payout failed for booking ${bookingId}: ${String(err)}`,
+        );
         throw err; // re-throw so BullMQ retries the job
       }
     } else {
-      // Stripe not configured or host has no Connect account — log for manual processing
+      // No payout method configured — log for manual processing
       this.logger.warn(
-        `Manual payout required: booking ${bookingId}, host ${hostId}, amount ${hostAmountCents} ${currency}`,
+        `Manual payout required: booking ${bookingId}, host ${hostId}, amount ${hostAmountRub} RUB (payoutPhone: ${host.payoutPhone ?? 'not set'})`,
       );
     }
 
-    // Record payout attempt in DB for audit trail
+    // Record payout timestamp for audit
     await this.prisma.booking.update({
       where: { id: bookingId },
       data: { updatedAt: new Date() },
@@ -94,7 +101,7 @@ export class PayoutProcessor {
     void this.emailQueue.sendPayoutNotification({
       to: host.email,
       hostName,
-      amountFormatted: `${(hostAmountCents / 100).toFixed(2)} ${currency.toUpperCase()}`,
+      amountFormatted: `${hostAmountRub.toFixed(2)} RUB`,
       bookingId,
     });
   }

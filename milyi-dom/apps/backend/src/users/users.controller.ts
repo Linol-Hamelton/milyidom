@@ -113,4 +113,10 @@ export class UsersController {
   ) {
     return this.usersService.registerPushToken(user.id, token);
   }
+
+  @Post('me/become-host')
+  @UseGuards(JwtAuthGuard)
+  becomeHost(@CurrentUser() user: CurrentUserType) {
+    return this.usersService.becomeHost(user.id);
+  }
 }
