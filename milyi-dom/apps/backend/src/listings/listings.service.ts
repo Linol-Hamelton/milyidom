@@ -996,10 +996,14 @@ export class ListingsService {
     if (!source) return [];
 
     const price = this.toNumber(source.basePrice);
-    const listings = await this.prisma.listing.findMany({
+    const excludeId = { id: { not: listingId } };
+    const published = { status: ListingStatus.PUBLISHED };
+
+    // 1st pass: same city + same type + ±40% price
+    let listings = await this.prisma.listing.findMany({
       where: {
-        id: { not: listingId },
-        status: ListingStatus.PUBLISHED,
+        ...excludeId,
+        ...published,
         city: { equals: source.city, mode: 'insensitive' },
         propertyType: { equals: source.propertyType, mode: 'insensitive' },
         basePrice: {
@@ -1011,6 +1015,39 @@ export class ListingsService {
       orderBy: { rating: 'desc' },
       take: limit,
     });
+
+    // 2nd pass: same city (any type)
+    if (listings.length < limit) {
+      const found = new Set(listings.map((l) => l.id));
+      const more = await this.prisma.listing.findMany({
+        where: {
+          id: { notIn: [listingId, ...found] },
+          ...published,
+          city: { equals: source.city, mode: 'insensitive' },
+        },
+        include: BASE_INCLUDE,
+        orderBy: { rating: 'desc' },
+        take: limit - listings.length,
+      });
+      listings = [...listings, ...more];
+    }
+
+    // 3rd pass: same property type (any city)
+    if (listings.length < limit) {
+      const found = new Set(listings.map((l) => l.id));
+      const more = await this.prisma.listing.findMany({
+        where: {
+          id: { notIn: [listingId, ...found] },
+          ...published,
+          propertyType: { equals: source.propertyType, mode: 'insensitive' },
+        },
+        include: BASE_INCLUDE,
+        orderBy: { rating: 'desc' },
+        take: limit - listings.length,
+      });
+      listings = [...listings, ...more];
+    }
+
     return this.serializeListings(listings);
   }
 
