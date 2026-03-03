@@ -15,7 +15,7 @@ import { Button } from '../../../components/ui/button';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { createPaymentIntent } from '../../../services/payments';
 import { parseError } from '../../../lib/api-client';
-import { formatCurrency } from '../../../lib/format';
+import { formatCurrency, decimalToNumber } from '../../../lib/format';
 import type { Booking, Payment } from '../../../types/api';
 import { api } from '../../../lib/api-client';
 
@@ -24,7 +24,7 @@ const stripePromise = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
   : null;
 
 // ─── Inner checkout form ────────────────────────────────────────────────────
-function CheckoutForm({ bookingId, amount, currency }: { bookingId: string; amount: string; currency: string }) {
+function CheckoutForm({ bookingId, amount, currency }: { bookingId: string; amount: number; currency: string }) {
   const stripe = useStripe();
   const elements = useElements();
   const router = useRouter();
@@ -72,17 +72,17 @@ function CheckoutForm({ bookingId, amount, currency }: { bookingId: string; amou
       <div className="flex items-center justify-between rounded-2xl bg-slate-50 px-6 py-4 text-sm text-slate-600">
         <span>Итого к оплате</span>
         <span className="text-xl font-bold text-slate-900">
-          {formatCurrency(Number(amount), currency)}
+          {formatCurrency(amount, currency)}
         </span>
       </div>
 
       <Button
         type="submit"
-        className="w-full bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700"
+        className="w-full bg-pine-600 hover:bg-pine-500 rounded-full"
         isLoading={submitting}
         disabled={!stripe || !elements || submitting}
       >
-        {submitting ? 'Обрабатываем…' : `Оплатить ${formatCurrency(Number(amount), currency)}`}
+        {submitting ? 'Обрабатываем…' : `Оплатить ${formatCurrency(amount, currency)}`}
       </Button>
 
       <p className="text-center text-xs text-slate-400">
@@ -168,7 +168,7 @@ export default function PaymentPage() {
         <div className="mx-auto max-w-lg px-4">
           {/* Header */}
           <div className="mb-8 text-center">
-            <p className="text-sm font-medium uppercase tracking-wide text-rose-600">
+            <p className="text-sm font-medium uppercase tracking-wide text-pine-600">
               Безопасная оплата
             </p>
             <h1 className="mt-1 text-3xl font-semibold text-slate-900">
@@ -228,7 +228,7 @@ export default function PaymentPage() {
             >
               <CheckoutForm
                 bookingId={bookingId}
-                amount={booking.totalPrice}
+                amount={decimalToNumber(booking.totalPrice)}
                 currency={booking.currency}
               />
             </Elements>
