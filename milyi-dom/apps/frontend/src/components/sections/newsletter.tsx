@@ -1,49 +1,59 @@
+'use client';
+
+import { useState } from 'react';
+import toast from 'react-hot-toast';
+
 export default function Newsletter() {
+  const [email, setEmail] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email.trim()) return;
+    // TODO: wire up real newsletter subscription endpoint
+    setSubmitted(true);
+    setEmail('');
+    toast.success('Подписка оформлена! Ждите подборки на почту.');
+  };
+
   return (
-    <section className="bg-gray-50 py-16">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="rounded-2xl bg-white p-8 shadow-sm sm:p-12">
-          <div className="mx-auto max-w-2xl text-center">
-            <h2 className="text-3xl font-bold tracking-tight text-gray-900">
-              Будьте в курсе лучших предложений
-            </h2>
-            <p className="mx-auto mt-4 max-w-xl text-lg text-gray-500">
-              Получайте подборки уникальных жилых пространств и специальные предложения прямо на почту
-            </p>
-            <form className="mt-8 sm:flex sm:max-w-md sm:mx-auto">
-              <div className="min-w-0 flex-1">
-                <label htmlFor="email" className="sr-only">
-                  Email адрес
-                </label>
-                <input
-                  id="email"
-                  type="email"
-                  required
-                  placeholder="Введите ваш email"
-                  className="block w-full rounded-md border border-gray-300 px-5 py-3 text-base text-gray-900 placeholder-gray-500 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                />
-              </div>
-              <div className="mt-3 sm:mt-0 sm:ml-3">
-                <button
-                  type="submit"
-                  className="block w-full rounded-md bg-blue-600 px-5 py-3 text-base font-medium text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 sm:px-10"
-                >
+    <section className="bg-sand-50 py-16">
+      <div className="mx-auto max-w-2xl px-6 text-center lg:px-8">
+        <p className="text-sm font-semibold uppercase tracking-wide text-pine-600">Рассылка</p>
+        <h2 className="mt-2 font-serif text-3xl text-slate-900">
+          Лучшие предложения — на вашу почту
+        </h2>
+        <p className="mt-3 text-slate-500">
+          Получайте подборки уникального жилья и спецпредложения первыми.
+        </p>
+
+        {submitted ? (
+          <div className="mt-8 rounded-2xl bg-pine-50 px-6 py-5 text-pine-700">
+            ✅ Вы подписались на рассылку. Спасибо!
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-center">
+            <input
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Введите ваш email"
+              className="w-full rounded-full border border-slate-200 bg-white px-5 py-3 text-sm text-slate-800 shadow-sm placeholder:text-slate-400 focus:border-pine-400 focus:outline-none focus:ring-1 focus:ring-pine-400 sm:max-w-xs"
+            />
+            <button
+              type="submit"
+              className="rounded-full bg-pine-600 px-8 py-3 text-sm font-semibold text-white shadow transition hover:bg-pine-500"
+            >
               Подписаться
             </button>
-        </div>
-            </form>
+          </form>
+        )}
 
-            <p className="mt-3 text-sm text-gray-400">
-              Мы заботимся о ваших данных. Ознакомьтесь с нашей{' '}
-              <a href="#" className="font-medium text-gray-500 hover:text-gray-600">
-                политикой конфиденциальности
-              </a>
-              .
-            </p>
-      </div>
-        </div>
+        <p className="mt-4 text-xs text-slate-400">
+          Никакого спама. Отписаться можно в любой момент.
+        </p>
       </div>
     </section>
   );
 }
-
