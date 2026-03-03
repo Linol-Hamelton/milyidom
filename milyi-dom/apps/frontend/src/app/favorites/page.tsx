@@ -104,10 +104,10 @@ export default function FavoritesPage() {
       <div className="bg-sand-50 py-12">
         <div className="mx-auto max-w-content-xl px-6 lg:px-10">
           <header className="space-y-2">
-            <p className="text-sm uppercase tracking-wide text-pine-600">Favorites</p>
-            <h1 className="text-3xl font-serif text-slate-900">Homes you love</h1>
+            <p className="text-sm uppercase tracking-wide text-pine-600">Избранное</p>
+            <h1 className="text-3xl font-serif text-slate-900">Жильё, которое вам понравилось</h1>
             <p className="text-sm text-slate-600">
-              Keep a shortlist of listings to compare later. Save an offline showcase home or a live API listing - they will both appear here.
+              Сохраняйте понравившиеся объявления, чтобы вернуться к ним позже.
             </p>
           </header>
 
@@ -119,10 +119,15 @@ export default function FavoritesPage() {
             </div>
           ) : !hasFavorites ? (
             <div className="mt-12 rounded-3xl border border-dashed border-pine-200 bg-white p-10 text-center">
-              <h2 className="text-lg font-semibold text-slate-900">Your favorites list is empty</h2>
-              <p className="mt-2 text-sm text-slate-500">Browse the catalog and tap the heart icon to save a home for later.</p>
-              <Button className="mt-4" onClick={() => router.push("/listings")}>
-                Explore listings
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-pine-50 text-3xl">
+                🤍
+              </div>
+              <h2 className="text-lg font-semibold text-slate-900">Список избранного пуст</h2>
+              <p className="mt-2 text-sm text-slate-500">
+                Просматривайте каталог и нажимайте на сердечко ❤️, чтобы сохранить жильё.
+              </p>
+              <Button className="mt-6" onClick={() => router.push("/listings")}>
+                Перейти в каталог
               </Button>
             </div>
           ) : (
@@ -130,26 +135,26 @@ export default function FavoritesPage() {
               {combinedFavorites.remote.map((favorite) => (
                 <div key={favorite.id} className="relative">
                   <ListingCard listing={favorite.listing} />
-                  <Button
-                    variant="ghost"
-                    className="absolute right-4 top-4 bg-white/80"
+                  <button
+                    type="button"
+                    className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-white hover:text-rose-600"
                     onClick={() => handleRemove(favorite.listingId)}
                   >
-                    Remove
-                  </Button>
+                    Удалить
+                  </button>
                 </div>
               ))}
 
               {combinedFavorites.offline.map((listing) => (
                 <div key={`offline-${listing.id}`} className="relative">
                   <ListingCard listing={listing} />
-                  <Button
-                    variant="ghost"
-                    className="absolute right-4 top-4 bg-white/80"
+                  <button
+                    type="button"
+                    className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-white hover:text-rose-600"
                     onClick={() => handleRemove(listing.id)}
                   >
-                    Remove
-                  </Button>
+                    Удалить
+                  </button>
                 </div>
               ))}
             </div>
@@ -159,8 +164,4 @@ export default function FavoritesPage() {
     </RequireAuth>
   );
 }
-
-
-
-
 

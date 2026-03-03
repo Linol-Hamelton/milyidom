@@ -1,6 +1,8 @@
 import type { Metadata } from 'next';
 import { ListingDetailClient } from '../../../components/listings/listing-detail-client';
 
+export const revalidate = 3600; // ISR: revalidate every hour
+
 const apiBase = (process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:4001/api').replace(/\/+$/, '');
 
 interface ListingMeta {
