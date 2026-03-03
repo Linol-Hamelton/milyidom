@@ -152,7 +152,7 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <div className="flex min-h-[50vh] items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-2 border-rose-600 border-t-transparent" />
+        <div className="h-12 w-12 animate-spin rounded-full border-2 border-pine-600 border-t-transparent" />
       </div>
     );
   }
@@ -253,7 +253,7 @@ export default function ProfilePage() {
 
                   {/* Avatar Section */}
                   <div className="mb-8 flex items-center gap-6">
-                    <div className="h-20 w-20 rounded-full bg-gradient-to-r from-rose-500 to-pink-500 flex items-center justify-center text-2xl font-semibold text-white">
+                    <div className="h-20 w-20 rounded-full bg-pine-600 flex items-center justify-center text-2xl font-semibold text-white">
                       {user?.profile?.firstName?.[0]?.toUpperCase() || user?.email[0].toUpperCase()}
                     </div>
                     <div>
@@ -262,7 +262,7 @@ export default function ProfilePage() {
                       </h3>
                       <p className="text-gray-600">{user?.email}</p>
                       {user?.isSuperhost && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-rose-100 px-2 py-1 text-xs font-medium text-rose-800 mt-1">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-pine-100 px-2 py-1 text-xs font-medium text-pine-800 mt-1">
                           <svg className="h-3 w-3" fill="currentColor" viewBox="0 0 20 20">
                             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                           </svg>
@@ -344,7 +344,7 @@ export default function ProfilePage() {
                     <div className="flex justify-end pt-4">
                       <Button 
                         type="submit" 
-                        className="bg-gradient-to-r from-rose-600 to-pink-600 hover:from-rose-700 hover:to-pink-700"
+                        className="bg-pine-600 hover:bg-pine-500 rounded-full"
                       >
                         Сохранить изменения
                       </Button>
@@ -494,7 +494,7 @@ export default function ProfilePage() {
                                 {STATUS_RU[booking.status] ?? booking.status}
                               </span>
                               <span className="text-sm font-semibold text-slate-900">
-                                {formatCurrency(Number(booking.totalPrice), booking.currency)}
+                                {formatCurrency(parseFloat(String(booking.totalPrice)), booking.currency)}
                               </span>
                             </div>
                           </div>
