@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { DateRangePicker } from '../ui/date-range-picker';
 
 const popularCities = [
   { name: 'Москва', emoji: '🏙️' },
@@ -59,7 +60,7 @@ export default function Hero() {
         {/* Search form */}
         <div className="mx-auto mt-10 max-w-4xl">
           <form onSubmit={handleSearch} className="overflow-hidden rounded-2xl bg-white shadow-2xl">
-            <div className="grid grid-cols-1 divide-y divide-gray-200 sm:grid-cols-4 sm:divide-x sm:divide-y-0">
+            <div className="grid grid-cols-1 divide-y divide-gray-200 sm:grid-cols-3 sm:divide-x sm:divide-y-0">
               <div className="p-4">
                 <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
                   Локация
@@ -74,28 +75,14 @@ export default function Hero() {
               </div>
 
               <div className="p-4">
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Заезд
-                </label>
-                <input
-                  type="date"
-                  value={checkIn}
-                  onChange={(e) => setCheckIn(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
-                  className="w-full border-0 p-0 text-sm text-gray-900 focus:outline-none focus:ring-0"
-                />
-              </div>
-
-              <div className="p-4">
-                <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-gray-500">
-                  Выезд
-                </label>
-                <input
-                  type="date"
-                  value={checkOut}
-                  onChange={(e) => setCheckOut(e.target.value)}
-                  min={checkIn || new Date().toISOString().split('T')[0]}
-                  className="w-full border-0 p-0 text-sm text-gray-900 focus:outline-none focus:ring-0"
+                <DateRangePicker
+                  checkIn={checkIn || undefined}
+                  checkOut={checkOut || undefined}
+                  onChange={(ci, co) => {
+                    setCheckIn(ci ?? '');
+                    setCheckOut(co ?? '');
+                  }}
+                  variant="columns"
                 />
               </div>
 

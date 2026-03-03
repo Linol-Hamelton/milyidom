@@ -506,12 +506,13 @@ export function ListingDetailClient({ listingId }: ListingDetailClientProps) {
           </div>
         </div>
 
-        <div className="mx-auto grid max-w-content-2xl gap-3 px-4 pb-8 sm:px-6 lg:grid-cols-3 lg:px-10">
+        {/* 5-photo grid: 1 large left + 2×2 right (Airbnb style) */}
+        <div className="mx-auto grid max-w-content-2xl gap-2 px-4 pb-8 sm:px-6 lg:grid-cols-4 lg:px-10">
           {heroImages[0] && (
             <button
               type="button"
               onClick={() => openLightbox(0)}
-              className="relative h-80 overflow-hidden rounded-3xl lg:col-span-2 focus:outline-none"
+              className="relative h-64 overflow-hidden rounded-3xl lg:col-span-2 lg:h-96 focus:outline-none"
             >
               <Image
                 unoptimized
@@ -524,18 +525,27 @@ export function ListingDetailClient({ listingId }: ListingDetailClientProps) {
                 blurDataURL={listingBlurDataURL}
               />
               <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-transparent" />
-              <span className="absolute bottom-3 right-3 hidden rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white lg:inline-flex">
-                Посмотреть все {heroImages.length} фото
-              </span>
+              {heroImages.length > 1 && (
+                <span className="absolute bottom-3 right-3 hidden rounded-full bg-black/60 px-3 py-1 text-xs font-medium text-white lg:inline-flex">
+                  Все фото ({heroImages.length})
+                </span>
+              )}
             </button>
           )}
-          <div className="grid h-80 gap-3 lg:grid-rows-2">
-            {heroImages.slice(1, 3).map((image, index) => (
+          {/* Right 2×2 grid */}
+          <div className="hidden gap-2 lg:col-span-2 lg:grid lg:grid-cols-2 lg:grid-rows-2" style={{ height: '24rem' }}>
+            {heroImages.slice(1, 5).map((image, index) => (
               <button
                 type="button"
                 key={`${listing.id}-hero-${index + 1}`}
                 onClick={() => openLightbox(index + 1)}
-                className="relative overflow-hidden rounded-3xl focus:outline-none"
+                className={clsx(
+                  'relative overflow-hidden focus:outline-none',
+                  index === 0 ? 'rounded-tr-xl' : '',
+                  index === 1 ? 'rounded-br-xl' : '',
+                  index === 2 ? 'rounded-tl-xl' : '',
+                  index === 3 ? 'rounded-bl-xl' : '',
+                )}
               >
                 <Image
                   unoptimized

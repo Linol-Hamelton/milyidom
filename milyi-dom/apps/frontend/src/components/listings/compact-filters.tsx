@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import clsx from 'clsx';
 import type { Amenity, ListingSearchFilters } from '../../types/api';
 import { CityAutocomplete } from '../ui/city-autocomplete';
+import { DateRangePicker } from '../ui/date-range-picker';
 
 interface CompactFiltersProps {
   amenities: Amenity[];
@@ -99,8 +100,6 @@ export function CompactFilters({ amenities, initialFilters, onApply }: CompactFi
     ...(advancedFilters.amenities ?? []),
   ].filter(Boolean).length;
 
-  const today = new Date().toISOString().split('T')[0];
-
   return (
     <div className="relative">
       {/* ── Compact filter bar ── */}
@@ -118,31 +117,17 @@ export function CompactFilters({ amenities, initialFilters, onApply }: CompactFi
 
         <div className="h-6 w-px bg-slate-200 max-sm:hidden" />
 
-        {/* Check-in */}
-        <div className="flex flex-col">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Заезд</span>
-          <input
-            type="date"
-            value={filters.checkIn ?? ''}
-            min={today}
-            onChange={(e) => handleChange('checkIn', e.target.value || undefined)}
-            className="border-0 p-0 text-sm text-slate-700 focus:outline-none focus:ring-0"
-          />
-        </div>
-
-        <div className="h-6 w-px bg-slate-200 max-sm:hidden" />
-
-        {/* Check-out */}
-        <div className="flex flex-col">
-          <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">Выезд</span>
-          <input
-            type="date"
-            value={filters.checkOut ?? ''}
-            min={filters.checkIn ?? today}
-            onChange={(e) => handleChange('checkOut', e.target.value || undefined)}
-            className="border-0 p-0 text-sm text-slate-700 focus:outline-none focus:ring-0"
-          />
-        </div>
+        {/* Date range picker */}
+        <DateRangePicker
+          checkIn={filters.checkIn}
+          checkOut={filters.checkOut}
+          onChange={(ci, co) => {
+            const next = { ...filters, checkIn: ci, checkOut: co };
+            setFilters(next);
+            onApply({ ...next, page: 1 });
+          }}
+          variant="columns"
+        />
 
         <div className="h-6 w-px bg-slate-200 max-sm:hidden" />
 
@@ -254,26 +239,86 @@ export function CompactFilters({ amenities, initialFilters, onApply }: CompactFi
             </div>
 
             <div className="space-y-5">
-              {/* Price range */}
+              {/* Price range slider */}
               <div>
-                <p className="mb-2 text-sm font-medium text-slate-700">Цена за ночь (₽)</p>
-                <div className="flex gap-3">
-                  <input
-                    type="number"
-                    placeholder="От"
-                    min={0}
-                    value={advancedFilters.minPrice ?? ''}
-                    onChange={(e) => handleAdvancedChange('minPrice', e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-pine-400 focus:outline-none focus:ring-0"
-                  />
-                  <input
-                    type="number"
-                    placeholder="До"
-                    min={0}
-                    value={advancedFilters.maxPrice ?? ''}
-                    onChange={(e) => handleAdvancedChange('maxPrice', e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:border-pine-400 focus:outline-none focus:ring-0"
-                  />
+                <div className="mb-2 flex items-center justify-between">
+                  <p className="text-sm font-medium text-slate-700">Цена за ночь (₽)</p>
+                  <span className="text-xs text-slate-500">
+                    {advancedFilters.minPrice
+                      ? `${advancedFilters.minPrice.toLocaleString('ru')}₽`
+                      : '0₽'}{' '}
+                    —{' '}
+                    {advancedFilters.maxPrice
+                      ? `${advancedFilters.maxPrice.toLocaleString('ru')}₽`
+                      : 'любая'}
+                  </span>
+                </div>
+
+                {/* Preset buttons */}
+                <div className="mb-3 flex flex-wrap gap-1.5">
+                  {([
+                    { label: 'до 3к', min: undefined, max: 3000 },
+                    { label: '3–8к', min: 3000, max: 8000 },
+                    { label: '8–15к', min: 8000, max: 15000 },
+                    { label: '15к+', min: 15000, max: undefined },
+                  ] as { label: string; min: number | undefined; max: number | undefined }[]).map((p) => (
+                    <button
+                      key={p.label}
+                      type="button"
+                      onClick={() =>
+                        setAdvancedFilters((prev) => ({ ...prev, minPrice: p.min, maxPrice: p.max }))
+                      }
+                      className={clsx(
+                        'rounded-full border px-3 py-1 text-xs font-medium transition',
+                        advancedFilters.minPrice === p.min && advancedFilters.maxPrice === p.max
+                          ? 'border-pine-500 bg-pine-50 text-pine-700'
+                          : 'border-slate-200 text-slate-500 hover:border-slate-300',
+                      )}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sliders */}
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 shrink-0 text-right text-xs text-slate-400">От</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={50000}
+                      step={500}
+                      value={advancedFilters.minPrice ?? 0}
+                      onChange={(e) =>
+                        handleAdvancedChange('minPrice', Number(e.target.value) || undefined)
+                      }
+                      className="w-full accent-pine-600"
+                    />
+                    <span className="w-14 shrink-0 text-right text-xs text-slate-600">
+                      {(advancedFilters.minPrice ?? 0).toLocaleString('ru')}₽
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-5 shrink-0 text-right text-xs text-slate-400">До</span>
+                    <input
+                      type="range"
+                      min={0}
+                      max={50000}
+                      step={500}
+                      value={advancedFilters.maxPrice ?? 50000}
+                      onChange={(e) => {
+                        const v = Number(e.target.value);
+                        handleAdvancedChange('maxPrice', v >= 50000 ? undefined : v);
+                      }}
+                      className="w-full accent-pine-600"
+                    />
+                    <span className="w-14 shrink-0 text-right text-xs text-slate-600">
+                      {advancedFilters.maxPrice
+                        ? `${advancedFilters.maxPrice.toLocaleString('ru')}₽`
+                        : 'любая'}
+                    </span>
+                  </div>
                 </div>
               </div>
 
