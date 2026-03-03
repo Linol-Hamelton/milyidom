@@ -10,6 +10,7 @@ import { Skeleton } from '../../components/ui/skeleton';
 import { fetchGuestBookings, cancelBooking } from '../../services/bookings';
 import type { Booking } from '../../types/api';
 import { parseError } from '../../lib/api-client';
+import { decimalToNumber } from '../../lib/format';
 import { useAuth } from '../../hooks/useAuth';
 
 const STATUS_CONFIG: Record<Booking['status'], { label: string; color: string; bgColor: string }> = {
@@ -212,7 +213,7 @@ export default function BookingsPage() {
                         <div className="text-right">
                           <p className="font-medium text-gray-900">Стоимость</p>
                           <p className="text-lg font-semibold text-gray-900">
-                            {Number(booking.totalPrice).toLocaleString('ru-RU', {
+                            {decimalToNumber(booking.totalPrice).toLocaleString('ru-RU', {
                               style: 'currency',
                               currency: booking.currency,
                               maximumFractionDigits: 0,

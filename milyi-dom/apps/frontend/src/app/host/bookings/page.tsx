@@ -8,6 +8,7 @@ import { Skeleton } from '../../../components/ui/skeleton';
 import { fetchHostBookings, updateBookingStatus } from '../../../services/bookings';
 import type { Booking } from '../../../types/api';
 import { parseError } from '../../../lib/api-client';
+import { decimalToNumber } from '../../../lib/format';
 
 const STATUS_RU: Record<string, string> = {
   PENDING: 'Ожидает подтверждения',
@@ -107,7 +108,7 @@ export default function HostBookingsPage() {
                     {booking.children > 0 && <span>Детей: {booking.children}</span>}
                     {booking.pets > 0 && <span>Питомцев: {booking.pets}</span>}
                     <span className="font-medium text-slate-800">
-                      {Number(booking.totalPrice).toLocaleString('ru-RU', { style: 'currency', currency: booking.currency, maximumFractionDigits: 0 })}
+                      {decimalToNumber(booking.totalPrice).toLocaleString('ru-RU', { style: 'currency', currency: booking.currency, maximumFractionDigits: 0 })}
                     </span>
                   </div>
                   {booking.status !== 'CANCELLED' && booking.status !== 'COMPLETED' && (

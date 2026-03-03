@@ -23,6 +23,7 @@ import { fetchHostAnalytics } from "../../../services/analytics";
 import type { Listing, Booking, BookingStatus } from "../../../types/api";
 import type { HostAnalytics } from "../../../services/analytics";
 import { parseError } from "../../../lib/api-client";
+import { decimalToNumber } from "../../../lib/format";
 
 type TabDefinition = {
   id: "overview" | "listings" | "bookings" | "analytics" | "ical" | "availability";
@@ -114,7 +115,7 @@ export default function HostDashboardPage() {
     const pendingBookings = bookings.filter((booking) => booking.status === "PENDING").length;
     const revenue = bookings
       .filter((booking) => booking.status === "CONFIRMED" || booking.status === "COMPLETED")
-      .reduce((total, booking) => total + parseFloat(String(booking.totalPrice)), 0);
+      .reduce((total, booking) => total + decimalToNumber(booking.totalPrice), 0);
     const occupancyRate = published > 0 ? Math.round((activeBookings / (published * 30)) * 100) : 0;
     return { published, draft, activeBookings, pendingBookings, revenue, occupancyRate };
   }, [bookings, listings]);
@@ -301,7 +302,7 @@ export default function HostDashboardPage() {
                           <p className="font-medium text-gray-900">{booking.listing.title}</p>
                           <p className="text-sm text-gray-500">
                             {renderDateRange(booking.checkIn, booking.checkOut)} ·{" "}
-                            {parseFloat(String(booking.totalPrice)).toLocaleString("ru-RU", {
+                            {decimalToNumber(booking.totalPrice).toLocaleString("ru-RU", {
                               style: "currency",
                               currency: booking.currency,
                               maximumFractionDigits: 0,
@@ -364,7 +365,7 @@ export default function HostDashboardPage() {
                           </div>
                           <div className="text-right">
                             <p className="font-semibold text-gray-900">
-                              {parseFloat(String(booking.totalPrice)).toLocaleString("ru-RU", {
+                              {decimalToNumber(booking.totalPrice).toLocaleString("ru-RU", {
                                 style: "currency",
                                 currency: booking.currency,
                                 maximumFractionDigits: 0,

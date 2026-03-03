@@ -11,6 +11,7 @@ import { Button } from '../../../components/ui/button';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { fetchBooking, cancelBooking } from '../../../services/bookings';
 import { parseError } from '../../../lib/api-client';
+import { decimalToNumber } from '../../../lib/format';
 import type { Booking } from '../../../types/api';
 
 const STATUS_LABEL: Record<Booking['status'], string> = {
@@ -213,7 +214,7 @@ export default function BookingDetailPage() {
                     <div className="flex justify-between border-t border-sand-200 pt-2 font-semibold text-slate-900">
                       <span>Итого</span>
                       <span>
-                        {Number(booking.totalPrice).toLocaleString('ru-RU', {
+                        {decimalToNumber(booking.totalPrice).toLocaleString('ru-RU', {
                           style: 'currency',
                           currency: booking.currency,
                           maximumFractionDigits: 0,

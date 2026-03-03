@@ -11,7 +11,7 @@ import { fetchCurrentUser, fetchUserStats, updateAccount, updateProfile, deleteM
 import { changePassword } from '../../services/auth';
 import { fetchGuestBookings } from '../../services/bookings';
 import type { Booking } from '../../types/api';
-import { formatCurrency } from '../../lib/format';
+import { formatCurrency, decimalToNumber } from '../../lib/format';
 import { parseError } from '../../lib/api-client';
 import { LoyaltyCard } from '../../components/ui/loyalty-card';
 import { TwoFactorSetup } from '../../components/ui/two-factor-setup';
@@ -494,7 +494,7 @@ export default function ProfilePage() {
                                 {STATUS_RU[booking.status] ?? booking.status}
                               </span>
                               <span className="text-sm font-semibold text-slate-900">
-                                {formatCurrency(parseFloat(String(booking.totalPrice)), booking.currency)}
+                                {formatCurrency(decimalToNumber(booking.totalPrice), booking.currency)}
                               </span>
                             </div>
                           </div>
