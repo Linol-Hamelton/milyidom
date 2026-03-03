@@ -278,12 +278,18 @@ STRIPE_CONNECT_CLIENT_ID=ca_...
 # ── Redis ─────────────────────────────────────────────────────────────────────
 REDIS_URL=redis://redis:6379
 
-# ── Email (Yandex 360 / Яндекс Почта для домена) ─────────────────────────────
-# SMTP_PASS = пароль приложения (Настройки → Безопасность → Пароли приложений)
-SMTP_HOST=smtp.yandex.ru
+# ── Email (Yandex Cloud Postbox) ─────────────────────────────────────────────
+# Сервис: console.cloud.yandex.ru → Cloud Postbox
+# SMTP_USER = Идентификатор статического ключа IAM сервисного аккаунта (postbox.sender)
+# SMTP_PASS = HMAC-SHA256 производная от секретного ключа (см. ниже)
+# Генерация SMTP_PASS:
+#   node -e "const c=require('crypto');const k=Buffer.from('<IAM_SECRET_KEY>');
+#     const s=Buffer.alloc(4+k.length);s[0]=0x02;k.copy(s,4);
+#     console.log(Buffer.concat([Buffer.from([0x02]),c.createHmac('sha256',s).update('SendRawEmail').digest()]).toString('base64'));"
+SMTP_HOST=postbox.cloud.yandex.net
 SMTP_PORT=587
-SMTP_USER=noreply@milyidom.com
-SMTP_PASS=<пароль приложения Яндекс>
+SMTP_USER=<Идентификатор_ключа_IAM>
+SMTP_PASS=<HMAC-SHA256 производная, base64>
 
 # ── Typesense ─────────────────────────────────────────────────────────────────
 TYPESENSE_HOST=typesense
@@ -726,7 +732,7 @@ Monitoring (internal only):
 External services:
     Stripe API ──────────────── payments & payouts
     Cloudflare R2 ───────────── image storage + CDN
-    Resend/SMTP ─────────────── transactional email
+    Yandex Cloud Postbox ─────── transactional email
     Google/VK OAuth ─────────── social login
     Anthropic API ───────────── AI search & review summaries
     Yandex Maps JS API ──────── interactive maps
