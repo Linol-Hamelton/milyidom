@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import { useAuthStore } from '../store/auth-store';
 
@@ -35,6 +35,7 @@ export function useSocketConnect() {
   const accessToken = useAuthStore((s) => s.accessToken);
   const user = useAuthStore((s) => s.user);
   const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(() => socketInstance);
 
   useEffect(() => {
     if (!user || !accessToken) {
@@ -43,11 +44,18 @@ export function useSocketConnect() {
         socketInstance.disconnect();
         socketInstance = null;
       }
+      socketRef.current = null;
+      setSocket(null);
       return;
     }
 
-    if (socketInstance?.connected) {
+    if (socketInstance) {
+      socketInstance.auth = { token: accessToken };
+      if (!socketInstance.connected) {
+        socketInstance.connect();
+      }
       socketRef.current = socketInstance;
+      setSocket(socketInstance);
       return;
     }
 
@@ -61,10 +69,12 @@ export function useSocketConnect() {
 
     socket.on('connect', () => {
       console.debug('[WS] Connected:', socket.id);
+      setSocket(socket);
     });
 
     socket.on('disconnect', (reason) => {
       console.debug('[WS] Disconnected:', reason);
+      setSocket(socket);
     });
 
     socket.on('connect_error', (err) => {
@@ -73,13 +83,14 @@ export function useSocketConnect() {
 
     socketInstance = socket;
     socketRef.current = socket;
+    setSocket(socket);
 
     return () => {
       // Don't disconnect here — singleton should persist across navigations
     };
   }, [user, accessToken]);
 
-  return socketRef.current ?? socketInstance;
+  return socket ?? socketRef.current ?? socketInstance;
 }
 
 /**
@@ -88,12 +99,13 @@ export function useSocketConnect() {
 export function useSocketEvent<T = unknown>(
   event: string,
   handler: (data: T) => void,
+  socketOverride?: Socket | null,
 ) {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
 
   useEffect(() => {
-    const socket = socketInstance;
+    const socket = socketOverride ?? socketInstance;
     if (!socket) return;
 
     const listener = (data: T) => handlerRef.current(data);
@@ -102,29 +114,48 @@ export function useSocketEvent<T = unknown>(
     return () => {
       socket.off(event, listener);
     };
-  }, [event]);
+  }, [event, socketOverride]);
 }
 
 /**
  * Hook to send messages to a conversation.
  */
 export function useSendMessage() {
-  return useCallback((conversationId: string, body: string) => {
-    socketInstance?.emit(WS_EVENT.SEND_MESSAGE, { conversationId, body });
-  }, []);
+  return useCallback(
+    (conversationId: string, body: string, socketOverride?: Socket | null) => {
+      const socket = socketOverride ?? socketInstance;
+      socket?.emit(WS_EVENT.SEND_MESSAGE, { conversationId, body });
+    },
+    [],
+  );
 }
 
 /**
  * Hook to join/leave a conversation room.
  */
-export function useConversationRoom(conversationId: string | null) {
+export function useConversationRoom(
+  conversationId: string | null,
+  socketOverride?: Socket | null,
+) {
   useEffect(() => {
-    if (!conversationId || !socketInstance) return;
+    const socket = socketOverride ?? socketInstance;
+    if (!conversationId || !socket) return;
 
-    socketInstance.emit(WS_EVENT.JOIN_CONVERSATION, { conversationId });
+    const join = () => {
+      socket.emit(WS_EVENT.JOIN_CONVERSATION, { conversationId });
+    };
+
+    if (socket.connected) {
+      join();
+    }
+
+    socket.on('connect', join);
 
     return () => {
-      socketInstance?.emit(WS_EVENT.LEAVE_CONVERSATION, { conversationId });
+      socket.off('connect', join);
+      if (socket.connected) {
+        socket.emit(WS_EVENT.LEAVE_CONVERSATION, { conversationId });
+      }
     };
-  }, [conversationId]);
+  }, [conversationId, socketOverride]);
 }

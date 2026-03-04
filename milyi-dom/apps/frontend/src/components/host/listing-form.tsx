@@ -230,8 +230,22 @@ export function ListingForm({ amenities, initialValues, listingId, onSubmit, sub
           Почтовый индекс
           <Input value={values.postalCode ?? ''} onChange={(event) => handleChange('postalCode', event.target.value)} />
         </label>
-        <NumberField label="Широта" value={values.latitude} onChange={(val) => handleChange('latitude', val)} />
-        <NumberField label="Долгота" value={values.longitude} onChange={(val) => handleChange('longitude', val)} />
+        <NumberField
+          label="Широта"
+          value={values.latitude}
+          onChange={(val) => handleChange('latitude', val)}
+          min={-90}
+          max={90}
+          step={0.000001}
+        />
+        <NumberField
+          label="Долгота"
+          value={values.longitude}
+          onChange={(val) => handleChange('longitude', val)}
+          min={-180}
+          max={180}
+          step={0.000001}
+        />
       </section>
 
       <section className="space-y-3">
@@ -255,7 +269,7 @@ export function ListingForm({ amenities, initialValues, listingId, onSubmit, sub
         <h3 className="text-sm font-semibold uppercase tracking-wide text-slate-500">Фотографии</h3>
 
         {/* File upload */}
-        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 px-6 py-4 text-sm text-slate-500 transition hover:border-pine-400 hover:text-pine-600">
+        <label className="flex cursor-pointer items-center gap-3 rounded-2xl border-2 border-dashed border-slate-200 px-4 py-4 text-sm text-slate-500 transition hover:border-pine-400 hover:text-pine-600 sm:px-6">
           <svg className="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
           </svg>
@@ -300,7 +314,7 @@ export function ListingForm({ amenities, initialValues, listingId, onSubmit, sub
       </section>
 
       <div className="flex justify-end">
-        <Button type="submit" disabled={submitting}>
+        <Button className="w-full sm:w-auto" type="submit" disabled={submitting}>
           {submitting ? 'Сохраняем…' : 'Сохранить объявление'}
         </Button>
       </div>
@@ -342,12 +356,14 @@ function NumberField({
   value,
   onChange,
   min,
+  max,
   step,
 }: {
   label: string;
   value: number;
   onChange: (val: number) => void;
   min?: number;
+  max?: number;
   step?: number;
 }) {
   return (
@@ -357,7 +373,9 @@ function NumberField({
         type="number"
         value={value}
         min={min}
+        max={max}
         step={step}
+        inputMode={step && step < 1 ? 'decimal' : 'numeric'}
         onChange={(event) => onChange(Number(event.target.value) || 0)}
       />
     </label>

@@ -69,7 +69,7 @@ beforeEach(() => {
     );
     expect(stored).toContain(OFFLINE_ID);
     expect(addFavoriteMock).not.toHaveBeenCalled();
-    expect(toastSuccessMock).toHaveBeenCalledWith("Saved to favorites.");
+    expect(toastSuccessMock).toHaveBeenCalledWith("Добавлено в избранное.");
   });
 
   it("adds a remote favorite when user is authenticated", async () => {
@@ -95,17 +95,15 @@ beforeEach(() => {
     expect(
       JSON.parse(localStorage.getItem("milyi-dom-offline-favorites") ?? "[]"),
     ).not.toContain(REMOTE_ID);
-    expect(toastSuccessMock).toHaveBeenCalledWith("Saved to favorites.");
+    expect(toastSuccessMock).toHaveBeenCalledWith("Добавлено в избранное.");
   });
 
   it("prompts sign-in when remote favorite is toggled unauthenticated", () => {
     render(<FavoriteToggle listingId={REMOTE_ID} />);
 
-    fireEvent.click(screen.getByRole("button", { name: /save to favorites/i }));
+    fireEvent.click(screen.getByRole("button", { name: /в избранное/i }));
 
     expect(addFavoriteMock).not.toHaveBeenCalled();
-    expect(toastErrorMock).toHaveBeenCalledWith(
-      "Please sign in to manage favorites.",
-    );
+    expect(toastErrorMock).toHaveBeenCalledWith("Войдите, чтобы добавить в избранное.");
   });
 });

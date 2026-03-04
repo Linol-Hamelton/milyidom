@@ -165,8 +165,20 @@ export async function createListing(
     images?: ListingImageInput[];
     amenityIds?: number[];
   },
+  options?: {
+    timeoutMs?: number;
+    idempotencyKey?: string;
+  },
 ) {
-  const { data } = await api.post<Listing>('/listings', payload);
+  const headers: Record<string, string> = {};
+  if (options?.idempotencyKey) {
+    headers['Idempotency-Key'] = options.idempotencyKey;
+  }
+
+  const { data } = await api.post<Listing>('/listings', payload, {
+    timeout: options?.timeoutMs ?? 60_000,
+    headers,
+  });
   return data;
 }
 

@@ -43,6 +43,25 @@ export class CacheService implements OnModuleInit, OnModuleDestroy {
     }
   }
 
+  async setIfAbsent(
+    key: string,
+    value: unknown,
+    ttlSeconds: number,
+  ): Promise<boolean> {
+    try {
+      const result = await this.client.set(
+        key,
+        JSON.stringify(value),
+        'EX',
+        ttlSeconds,
+        'NX',
+      );
+      return result === 'OK';
+    } catch {
+      return false;
+    }
+  }
+
   async del(key: string): Promise<void> {
     try {
       await this.client.del(key);

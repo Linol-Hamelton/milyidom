@@ -101,11 +101,11 @@ export default function FavoritesPage() {
 
   return (
     <RequireAuth>
-      <div className="bg-sand-50 py-12">
-        <div className="mx-auto max-w-content-xl px-6 lg:px-10">
+      <div className="bg-sand-50 py-8 sm:py-12">
+        <div className="mx-auto max-w-content-xl px-4 sm:px-6 lg:px-10">
           <header className="space-y-2">
             <p className="text-sm uppercase tracking-wide text-pine-600">Избранное</p>
-            <h1 className="text-3xl font-serif text-slate-900">Жильё, которое вам понравилось</h1>
+            <h1 className="text-2xl font-serif text-slate-900 sm:text-3xl">Жильё, которое вам понравилось</h1>
             <p className="text-sm text-slate-600">
               Сохраняйте понравившиеся объявления, чтобы вернуться к ним позже.
             </p>
@@ -137,7 +137,7 @@ export default function FavoritesPage() {
                   <ListingCard listing={favorite.listing} />
                   <button
                     type="button"
-                    className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-white hover:text-rose-600"
+                    className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-white hover:text-rose-600"
                     onClick={() => handleRemove(favorite.listingId)}
                   >
                     Удалить
@@ -150,7 +150,7 @@ export default function FavoritesPage() {
                   <ListingCard listing={listing} />
                   <button
                     type="button"
-                    className="absolute right-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-white hover:text-rose-600"
+                    className="absolute left-4 top-4 rounded-full bg-white/90 px-3 py-1.5 text-xs font-medium text-slate-600 shadow-sm transition hover:bg-white hover:text-rose-600"
                     onClick={() => handleRemove(listing.id)}
                   >
                     Удалить

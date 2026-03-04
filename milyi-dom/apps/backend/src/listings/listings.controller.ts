@@ -5,6 +5,7 @@ import {
   Controller,
   Delete,
   Get,
+  Headers,
   Param,
   ParseEnumPipe,
   Patch,
@@ -91,8 +92,9 @@ export class ListingsController {
   create(
     @CurrentUser() user: CurrentUserType,
     @Body() createListingDto: CreateListingDto,
+    @Headers('idempotency-key') idempotencyKey?: string,
   ) {
-    return this.listingsService.create(user.id, createListingDto);
+    return this.listingsService.create(user.id, createListingDto, idempotencyKey);
   }
 
   @Get(':id/similar')

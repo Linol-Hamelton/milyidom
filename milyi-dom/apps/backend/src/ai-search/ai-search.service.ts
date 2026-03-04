@@ -159,18 +159,25 @@ export class AiSearchService {
     if (!this.client) return { isFraud: false, reason: '' };
 
     try {
-      const message = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
-        max_tokens: 256,
-        system:
-          'You are a fraud detection system for a rental platform. Analyze the listing and respond ONLY with JSON: {"isFraud": boolean, "reason": "string"}. Flag fraud when: unrealistic pricing, copy-pasted generic text, suspicious claims, clearly fake location. Reason must be in Russian when isFraud is true, empty string otherwise.',
-        messages: [
-          {
-            role: 'user',
-            content: `Title: ${listing.title}\nCity: ${listing.city}, ${listing.country}\nBase price/night: ${listing.basePrice} RUB\nDescription: ${listing.description}`,
-          },
-        ],
+      const timeoutPromise = new Promise<never>((_resolve, reject) => {
+        setTimeout(() => reject(new Error('Fraud detection timed out')), 5000);
       });
+
+      const message = await Promise.race([
+        this.client.messages.create({
+          model: 'claude-haiku-4-5-20251001',
+          max_tokens: 256,
+          system:
+            'You are a fraud detection system for a rental platform. Analyze the listing and respond ONLY with JSON: {"isFraud": boolean, "reason": "string"}. Flag fraud when: unrealistic pricing, copy-pasted generic text, suspicious claims, clearly fake location. Reason must be in Russian when isFraud is true, empty string otherwise.',
+          messages: [
+            {
+              role: 'user',
+              content: `Title: ${listing.title}\nCity: ${listing.city}, ${listing.country}\nBase price/night: ${listing.basePrice} RUB\nDescription: ${listing.description}`,
+            },
+          ],
+        }),
+        timeoutPromise,
+      ]);
 
       const raw =
         message.content[0].type === 'text' ? message.content[0].text : '{}';

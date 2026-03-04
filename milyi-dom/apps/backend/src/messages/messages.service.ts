@@ -6,6 +6,8 @@
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SendMessageDto } from './dto/send-message.dto';
+import { AppGateway } from '../gateway/app.gateway';
+import { WS_EVENT } from '../gateway/gateway.types';
 
 const conversationSummaryInclude = {
   messages: {
@@ -58,7 +60,10 @@ const conversationDetailInclude = {
 
 @Injectable()
 export class MessagesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly gateway: AppGateway,
+  ) {}
 
   async sendMessage(userId: string, dto: SendMessageDto) {
     const { conversation, recipientId } = await this.resolveConversation(
@@ -83,6 +88,16 @@ export class MessagesService {
     await this.prisma.conversation.update({
       where: { id: conversation.id },
       data: { updatedAt: new Date() },
+    });
+
+    this.gateway.server
+      .to(`conversation:${conversation.id}`)
+      .emit(WS_EVENT.MESSAGE, message);
+    this.gateway.pushNotification(recipientId, {
+      type: 'MESSAGE',
+      title: 'Новое сообщение',
+      body: dto.body.slice(0, 100),
+      data: { conversationId: conversation.id },
     });
 
     return message;

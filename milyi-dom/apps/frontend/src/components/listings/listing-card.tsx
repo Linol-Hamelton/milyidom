@@ -13,7 +13,7 @@ import Link from 'next/link';
 import { motion } from 'framer-motion';
 import clsx from 'clsx';
 import type { Listing } from '../../types/api';
-import { formatCurrency } from '../../lib/format';
+import { decimalToNumber, formatCurrency } from '../../lib/format';
 import { listingBlurDataURL } from '../../lib/image-placeholder';
 import { FavoriteToggle } from './favorite-toggle';
 
@@ -44,7 +44,8 @@ export function ListingCard({ listing, href }: ListingCardProps) {
 
   const currentImage = sortedImages[activeIdx] ?? sortedImages[0];
   const imageSrc = currentImage ? getImageUrl(currentImage.url) : '/images/listing-1.jpg';
-  const price = Number(listing.basePrice ?? 0);
+  const normalizedPrice = decimalToNumber(listing.basePrice);
+  const price = Number.isFinite(normalizedPrice) ? normalizedPrice : 0;
   const linkHref = href ?? `/listings/${listing.id}`;
   const propertyLabel = propertyTypeLabels[listing.propertyType] ?? listing.propertyType;
   const hasMultiple = sortedImages.length > 1;
