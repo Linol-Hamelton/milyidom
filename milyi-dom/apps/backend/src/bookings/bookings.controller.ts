@@ -44,7 +44,7 @@ export class BookingsController {
     return this.bookingsService.guestBookings(user.id, pagination);
   }
 
-  @Roles(Role.HOST)
+  @Roles(Role.HOST, Role.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Get('host')
   hostBookings(
@@ -69,7 +69,7 @@ export class BookingsController {
   }
 
   @Audit(AuditAction.BOOKING_STATUS_CHANGE, 'booking')
-  @Roles(Role.HOST)
+  @Roles(Role.HOST, Role.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Patch(':id/status')
   updateStatus(

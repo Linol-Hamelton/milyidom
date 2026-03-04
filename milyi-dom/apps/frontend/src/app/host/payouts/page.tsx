@@ -1,9 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { RequireAuth } from '../../../components/ui/require-auth';
 import { getPayoutStatus, savePayoutPhone } from '../../../services/payments';
 
 export default function HostPayoutsPage() {
+  return (
+    <RequireAuth roles={['HOST', 'ADMIN']}>
+      <HostPayoutsContent />
+    </RequireAuth>
+  );
+}
+
+function HostPayoutsContent() {
   const [phone, setPhone] = useState('');
   const [savedPhone, setSavedPhone] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
