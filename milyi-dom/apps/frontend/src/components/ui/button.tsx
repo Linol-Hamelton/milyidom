@@ -3,8 +3,8 @@
 import { ButtonHTMLAttributes, forwardRef } from 'react';
 import { twMerge } from 'tailwind-merge';
 
-type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
-type ButtonSize = 'sm' | 'md' | 'lg';
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost' | 'danger' | 'outline';
+export type ButtonSize = 'sm' | 'md' | 'lg';
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: ButtonVariant;
@@ -29,12 +29,24 @@ const sizeStyles: Record<ButtonSize, string> = {
   lg: 'px-6 py-3 text-base',
 };
 
+export function buttonClassName({
+  variant = 'primary',
+  size = 'md',
+  className,
+}: {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  className?: string;
+}) {
+  return twMerge(baseStyles, variantStyles[variant], sizeStyles[size], className);
+}
+
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, children, ...props }, ref) => (
     <button
       {...props}
       ref={ref}
-      className={twMerge(baseStyles, variantStyles[variant], sizeStyles[size], className)}
+      className={buttonClassName({ variant, size, className })}
       disabled={isLoading || props.disabled}
     >
       {isLoading ? (

@@ -37,6 +37,7 @@ function ConversationView({
   const [sending, setSending] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sendingRef = useRef(false);
 
@@ -126,7 +127,7 @@ function ConversationView({
   };
 
   const sendCurrentMessage = useCallback(async () => {
-    const text = body.trim();
+    const text = body.trim() || composerRef.current?.value.trim() || "";
     if (!text || sendingRef.current) return;
 
     sendingRef.current = true;
@@ -199,6 +200,7 @@ function ConversationView({
 
       <form onSubmit={handleSend} className="space-y-3">
         <Textarea
+          ref={composerRef}
           rows={3}
           placeholder="Напишите сообщение..."
           value={body}
@@ -214,8 +216,7 @@ function ConversationView({
           <Button
             className="w-full sm:w-auto"
             type="submit"
-            onClick={() => void sendCurrentMessage()}
-            disabled={sending || !body.trim()}
+            disabled={sending}
           >
             Отправить
           </Button>

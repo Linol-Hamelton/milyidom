@@ -1,10 +1,10 @@
 ﻿"use client";
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import toast from 'react-hot-toast';
 import { RequireAuth } from '../../../components/ui/require-auth';
-import { Button } from '../../../components/ui/button';
+import { Button, buttonClassName } from '../../../components/ui/button';
 import { Skeleton } from '../../../components/ui/skeleton';
 import { fetchHostListings, updateListingStatus, deleteListing } from '../../../services/listings';
 import type { Listing } from '../../../types/api';
@@ -17,7 +17,6 @@ const STATUS_LABELS: Record<Listing['status'], string> = {
 };
 
 export default function HostListingsPage() {
-  const router = useRouter();
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -73,7 +72,9 @@ export default function HostListingsPage() {
                 Следите за актуальностью описаний, цен и статусов, чтобы гости быстрее находили ваше жильё.
               </p>
             </div>
-            <Button onClick={() => router.push('/host/listings/new')}>Добавить объявление</Button>
+            <Link href="/host/listings/new" className={buttonClassName({})}>
+              Добавить объявление
+            </Link>
           </header>
 
           {loading ? (
@@ -96,9 +97,12 @@ export default function HostListingsPage() {
                       <h2 className="text-lg font-semibold text-slate-900">{listing.title}</h2>
                       <p className="text-xs text-slate-500">{listing.city}, {listing.country}</p>
                     </div>
-                    <Button variant="ghost" onClick={() => router.push(`/host/listings/${listing.id}/edit`)}>
+                    <Link
+                      href={`/host/listings/${listing.id}/edit`}
+                      className={buttonClassName({ variant: 'ghost' })}
+                    >
                       Редактировать
-                    </Button>
+                    </Link>
                   </div>
                   <p className="text-sm text-slate-600">
                     {listing.summary ?? `${listing.description.slice(0, 120)}${listing.description.length > 120 ? '…' : ''}`}
@@ -114,9 +118,12 @@ export default function HostListingsPage() {
                     </span>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="ghost" onClick={() => router.push(`/host/listings/${listing.id}/availability`)}>
+                    <Link
+                      href={`/host/listings/${listing.id}/availability`}
+                      className={buttonClassName({ variant: 'ghost' })}
+                    >
                       Доступность
-                    </Button>
+                    </Link>
                     <Button variant="ghost" onClick={() => handleStatusChange(listing.id, 'PUBLISHED')}>
                       Опубликовать
                     </Button>

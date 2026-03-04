@@ -29,6 +29,27 @@ const resolveWsUrl = () => {
 
 const WS_URL = resolveWsUrl();
 
+const resolveSocketPath = () => {
+  const explicitPath = process.env.NEXT_PUBLIC_WS_PATH?.trim();
+  if (!explicitPath) return '/socket.io';
+  return explicitPath.startsWith('/') ? explicitPath : `/${explicitPath}`;
+};
+
+const resolveSocketTransports = (): Array<'polling' | 'websocket'> => {
+  const raw = process.env.NEXT_PUBLIC_WS_TRANSPORTS?.trim();
+  if (!raw) return ['polling'];
+
+  const parsed = raw
+    .split(',')
+    .map((value) => value.trim().toLowerCase())
+    .filter((value): value is 'polling' | 'websocket' => value === 'polling' || value === 'websocket');
+
+  return parsed.length > 0 ? parsed : ['polling'];
+};
+
+const WS_PATH = resolveSocketPath();
+const WS_TRANSPORTS = resolveSocketTransports();
+
 export const WS_EVENT = {
   JOIN_CONVERSATION: 'join_conversation',
   LEAVE_CONVERSATION: 'leave_conversation',
@@ -84,7 +105,9 @@ export function useSocketConnect() {
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      transports: ['websocket', 'polling'],
+      path: WS_PATH,
+      transports: WS_TRANSPORTS,
+      upgrade: WS_TRANSPORTS.includes('websocket'),
     });
 
     socket.on('connect', () => {
