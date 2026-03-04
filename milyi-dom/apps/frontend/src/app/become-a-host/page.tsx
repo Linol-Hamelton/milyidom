@@ -102,7 +102,7 @@ export default function BecomeAHostPage() {
       </section>
 
       {/* ── How it works ── */}
-      <section className="bg-white py-20">
+      <section id="how-it-works" className="bg-white py-20">
         <div className="mx-auto max-w-5xl px-6 lg:px-8">
           <div className="mb-12 text-center">
             <p className="text-sm font-semibold uppercase tracking-wide text-pine-600">Как это работает</p>
@@ -124,7 +124,7 @@ export default function BecomeAHostPage() {
       </section>
 
       {/* ── Benefits ── */}
-      <section className="bg-sand-50 py-20">
+      <section id="host-benefits" className="bg-sand-50 py-20">
         <div className="mx-auto max-w-5xl px-6 lg:px-8">
           <div className="mb-12 text-center">
             <p className="text-sm font-semibold uppercase tracking-wide text-pine-600">Преимущества</p>
@@ -178,7 +178,7 @@ export default function BecomeAHostPage() {
       </section>
 
       {/* ── FAQ ── */}
-      <section className="bg-sand-50 py-20">
+      <section id="host-faq" className="bg-sand-50 py-20">
         <div className="mx-auto max-w-3xl px-6 lg:px-8">
           <div className="mb-10 text-center">
             <p className="text-sm font-semibold uppercase tracking-wide text-pine-600">Вопросы и ответы</p>

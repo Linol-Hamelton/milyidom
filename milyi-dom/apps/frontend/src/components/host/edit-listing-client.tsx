@@ -77,8 +77,8 @@ export function EditListingClient({ listingId }: { listingId: string }) {
         postalCode: values.postalCode,
         latitude: values.latitude.toString(),
         longitude: values.longitude.toString(),
-        images,
-        amenityIds: values.amenityIds,
+        images: images.length > 0 ? images : undefined,
+        amenityIds: values.amenityIds.length > 0 ? values.amenityIds : undefined,
       };
 
       await updateListing(listing.id, payload);

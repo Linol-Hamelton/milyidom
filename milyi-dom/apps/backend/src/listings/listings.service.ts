@@ -226,6 +226,8 @@ export class ListingsService {
           dto.serviceFee !== undefined
             ? new Prisma.Decimal(dto.serviceFee)
             : undefined,
+        currency: dto.currency,
+        status: dto.status ?? ListingStatus.DRAFT,
         instantBook: dto.instantBook ?? false,
         checkInFrom: dto.checkInFrom,
         checkOutUntil: dto.checkOutUntil,
@@ -244,14 +246,16 @@ export class ListingsService {
               create: dto.amenityIds.map((amenityId) => ({ amenityId })),
             }
           : undefined,
-        images: {
-          create: dto.images.map((image, index) => ({
-            url: image.url,
-            description: image.description,
-            position: image.position ?? index,
-            isPrimary: image.isPrimary ?? index === 0,
-          })),
-        },
+        images: dto.images
+          ? {
+              create: dto.images.map((image, index) => ({
+                url: image.url,
+                description: image.description,
+                position: image.position ?? index,
+                isPrimary: image.isPrimary ?? index === 0,
+              })),
+            }
+          : undefined,
       },
       include: BASE_INCLUDE,
     });
@@ -298,6 +302,9 @@ export class ListingsService {
     }
     if (dto.serviceFee !== undefined) {
       data.serviceFee = new Prisma.Decimal(dto.serviceFee);
+    }
+    if (dto.currency !== undefined) {
+      data.currency = dto.currency;
     }
 
     if (dto.latitude !== undefined && dto.longitude !== undefined) {

@@ -2,7 +2,7 @@ import Link from 'next/link';
 
 export default function HostCta() {
   return (
-    <section className="relative overflow-hidden bg-pine-700 py-16">
+    <section id="hosts" className="relative overflow-hidden bg-pine-700 py-16">
       <div className="pointer-events-none absolute inset-0">
         <div className="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-white/5 blur-3xl" />
         <div className="absolute -bottom-12 left-10 h-48 w-48 rounded-full bg-amber-300/10 blur-3xl" />

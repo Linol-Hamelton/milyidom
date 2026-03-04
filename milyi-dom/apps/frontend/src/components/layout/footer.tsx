@@ -4,38 +4,39 @@ const footerLinks = [
   {
     title: 'О сервисе',
     items: [
-      { label: 'Как работает Милый дом', href: '#' },
-      { label: 'Команда и партнеры', href: '#' },
-      { label: 'Контакты', href: '#' },
+      { label: 'Как работает Милый дом', href: '/#inspiration' },
+      { label: 'Команда и партнёры', href: '/top-hosts' },
+      { label: 'Контакты', href: '/#support' },
     ],
   },
   {
     title: 'Поддержка',
     items: [
-      { label: 'Помощь гостям', href: '#support' },
-      { label: 'Правила и безопасность', href: '#' },
-      { label: 'Центр помощи', href: '#' },
+      { label: 'Помощь гостям', href: '/#support' },
+      { label: 'Правила и безопасность', href: '/offline' },
+      { label: 'Центр помощи', href: '/#support' },
     ],
   },
   {
     title: 'Хостам',
     items: [
-      { label: 'Стать хозяином', href: '#hosts' },
-      { label: 'Рекомендации по приёму гостей', href: '#' },
-      { label: 'Программа доверия', href: '#' },
+      { label: 'Стать хозяином', href: '/become-a-host' },
+      { label: 'Рекомендации по приёму гостей', href: '/become-a-host#how-it-works' },
+      { label: 'Программа доверия', href: '/become-a-host#host-benefits' },
     ],
   },
 ];
 
 export default function Footer() {
   return (
-    <footer id="support">
+    <footer>
       <div className="mx-auto grid max-w-content-lg gap-12 px-6 py-12 lg:grid-cols-4 lg:px-10">
         <div className="space-y-4">
           <div>
             <span className="text-xl font-semibold text-pine-600">Милый дом</span>
             <p className="mt-2 text-sm text-slate-600">
-              Сервис для поиска уютного жилья в городах и путешествиях. Бронируйте напрямую у проверенных хозяев.
+              Сервис для поиска уютного жилья в городах и путешествиях. Бронируйте напрямую у
+              проверенных хозяев.
             </p>
           </div>
           <p className="text-xs text-slate-500">

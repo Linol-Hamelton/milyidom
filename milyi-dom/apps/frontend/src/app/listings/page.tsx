@@ -90,7 +90,12 @@ export default function ListingsPage() {
 
   const handleApplyFilters = (next: ListingSearchFilters) => {
     setAiInterpretation('');
-    loadListings({ ...filters, ...next, page: 1 });
+    loadListings({
+      ...INITIAL_FILTERS,
+      ...next,
+      limit: filters.limit ?? INITIAL_FILTERS.limit,
+      page: 1,
+    });
   };
 
   const handleAiSearch = (aiFilters: Partial<ListingSearchFilters>, interpretation: string) => {

@@ -235,7 +235,7 @@ export default function BookingsPage() {
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => router.push(`/listings/${booking.listing.id}`)}
+                            onClick={() => router.push(`/bookings/${booking.id}`)}
                             className="flex-1"
                           >
                             Посмотреть

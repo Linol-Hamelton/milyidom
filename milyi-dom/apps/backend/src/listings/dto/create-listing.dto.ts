@@ -4,6 +4,7 @@ import {
   ArrayMinSize,
   IsArray,
   IsBoolean,
+  IsEnum,
   IsInt,
   IsNumber,
   IsOptional,
@@ -16,6 +17,7 @@ import {
   MinLength,
   ValidateNested,
 } from 'class-validator';
+import { ListingStatus } from '@prisma/client';
 import { ListingImageDto } from './listing-image.dto';
 
 export class CreateListingDto {
@@ -68,6 +70,14 @@ export class CreateListingDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   serviceFee?: number;
+
+  @IsOptional()
+  @Matches(/^[A-Z]{3}$/)
+  currency?: string;
+
+  @IsOptional()
+  @IsEnum(ListingStatus)
+  status?: ListingStatus;
 
   @IsOptional()
   @IsBoolean()
@@ -138,10 +148,11 @@ export class CreateListingDto {
   @IsInt({ each: true })
   amenityIds?: number[];
 
+  @IsOptional()
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(25)
   @ValidateNested({ each: true })
   @Type(() => ListingImageDto)
-  images!: ListingImageDto[];
+  images?: ListingImageDto[];
 }

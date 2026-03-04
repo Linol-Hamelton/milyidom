@@ -61,7 +61,21 @@ export function ListingFilters({ amenities, onApply, initialFilters }: ListingFi
   };
 
   const handleReset = () => {
-    const resetFilters: ListingSearchFilters = { guests: 1 };
+    const resetFilters: ListingSearchFilters = {
+      city: undefined,
+      country: undefined,
+      guests: 1,
+      checkIn: undefined,
+      checkOut: undefined,
+      propertyType: undefined,
+      minPrice: undefined,
+      maxPrice: undefined,
+      minRating: undefined,
+      sort: undefined,
+      instantBook: undefined,
+      amenities: [],
+      page: 1,
+    };
     setFilters(resetFilters);
     onApply(resetFilters);
   };

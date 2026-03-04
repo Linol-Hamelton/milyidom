@@ -162,7 +162,7 @@ export async function fetchHostListings(params?: { page?: number; limit?: number
 
 export async function createListing(
   payload: ListingMutationBase & {
-    images: ListingImageInput[];
+    images?: ListingImageInput[];
     amenityIds?: number[];
   },
 ) {
