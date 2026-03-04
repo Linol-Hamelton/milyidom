@@ -216,3 +216,126 @@ For each item track:
   - `wss://api.milyidom.com/socket.io/?EIO=4&transport=websocket` -> `400`.
   - Impact: REST messaging works, but realtime socket channel reliability is degraded.
   - Action: align API proxy websocket configuration (`/socket.io/`) to ensure successful websocket upgrade in production.
+
+## 10. Follow-up Validation (Production, 2026-03-05)
+
+### Deployment/Infra checks
+
+- External API health mapping:
+  - `https://api.milyidom.com/api/health` -> `404`.
+  - `https://api.milyidom.com/api/api/health` -> `200`.
+  - Status: proxy path mapping still non-canonical and should be normalized to `/api/health`.
+- Socket transport checks:
+  - `https://api.milyidom.com/socket.io/?EIO=4&transport=polling` -> `200`.
+  - Browser websocket upgrade attempts still report `400`.
+  - Status: realtime still depends on proxy websocket upgrade correctness.
+
+### App-level mitigation shipped
+
+- Frontend socket client updated:
+  - `transports` order changed to `['polling', 'websocket']` with `upgrade: true`.
+  - Goal: preserve realtime connectivity even when direct websocket handshake is blocked by proxy upgrade rules.
+
+### Current role-smoke outcome
+
+- Unauthorized guard checks still pass for `/host/payouts`, `/host/bookings`, `/messages`.
+- `ADMIN` on `/host/bookings` no longer returns `403` (`GET /api/bookings/host?limit=50 -> 200`).
+- Favorites price format remains correct on `/favorites` (`N ₽ / ночь`).
+- Listing coordinates with decimals are accepted by form validation (`55.7558 / 37.6176`).
+
+## 11. Extended Regression (Production, 2026-03-05)
+
+### Scope
+
+- Domain under test: `https://milyidom.com`.
+- Focus:
+  - mobile/tablet adaptivity matrix,
+  - complex synthetic booking/payment scenarios,
+  - role matrix: `unauthorized`, `GUEST`, `HOST`, `ADMIN`.
+- Real payment processing was not executed; only synthetic API/UI payment flows were tested.
+
+### Responsive Matrix Summary
+
+- Viewports validated: `360x812`, `390x812`, `768x1024`, `1024x800`.
+- Routes validated: `/`, `/listings`, `/listings/seed_msk_loft`, `/favorites`, `/messages`, `/bookings`, `/payments`, `/profile`.
+- Result:
+  - all tested routes load and remain usable on target viewports,
+  - one layout regression remains (see defects).
+
+### Booking/Payment Role Flow Summary
+
+- `GUEST`:
+  - booking submit from listing details works on desktop and mobile (`POST /api/bookings -> 201`),
+  - payment intent and status check work (`POST /api/payments/intent -> 201`, `GET /api/payments/:bookingId/status -> 200`),
+  - confirm/refund are correctly denied for guest (`403`).
+- `HOST`:
+  - `/host/bookings` and `/host/payouts` accessible,
+  - host booking API works (`GET /api/bookings/host?limit=50 -> 200`),
+  - payment status/confirm/refund work for host (`200`), intent creation is denied (`403`) as expected by current permissions.
+- `ADMIN`:
+  - `/host/bookings` and `/host/payouts` accessible,
+  - host booking API works (`GET /api/bookings/host?limit=50 -> 200`),
+  - payment status endpoint returns `403` for admin on tested booking (requires product decision: expected restriction or role-gap).
+- `unauthorized`:
+  - `/host/payouts` redirects to `/auth/login` (pass).
+
+### Messaging Recheck
+
+- `GUEST` and `HOST` send from `/messages` works:
+  - `POST /api/messages -> 201`,
+  - input is cleared,
+  - sent message is appended in current thread.
+
+### Defects Found in This Extended Regression
+
+1. MEDIUM - Mobile horizontal overflow on listing details (`/listings/seed_msk_loft`) at narrow width.
+   - Reproduced at `360px` viewport (`scrollWidth > clientWidth`).
+   - Not reproduced at `390px` and tablet/desktop widths.
+
+2. MEDIUM - Incorrect payment amount rendering in `/payments` result panel.
+   - After successful intent creation (`201`), payment info block shows amount as `не число ₽`.
+   - Reproduced in guest and host payment flows.
+
+### Notes for Next Fix Cycle
+
+- Prioritize amount formatting fix in payment UI serializer/parser.
+- Patch listing details mobile layout to remove horizontal overflow at `360px`.
+- Clarify product rule for `ADMIN` access to `/api/payments/:bookingId/status` (keep restricted vs grant read-only access).
+
+## 12. Defect Fix Cycle (Local Code, 2026-03-05)
+
+### Implemented
+
+1. `/payments` amount formatting fixed:
+   - UI switched from `Number(payment.amount)` to shared `decimalToNumber(...)`.
+   - Covers serialized decimal objects and string amounts without `NaN` output.
+
+2. `/listings/seed_msk_loft` 360px overflow fix:
+   - Listing header title/location now use safe word wrapping.
+   - Top action row (`Back`/`Share`/`Favorite`) now supports wrapping on narrow screens.
+
+3. Product policy decision for payment status:
+   - Decision: `ADMIN` has read-only access to `GET /api/payments/:bookingId/status`.
+   - Backend now explicitly allows `Role.ADMIN` in payment status ownership check.
+   - Confirm/refund rules remain unchanged (host-owned operational actions).
+
+### Regression Safety Added
+
+- Backend tests:
+  - `payments.controller.spec.ts`: verifies role is forwarded to service.
+  - `payments.service.spec.ts`: verifies `ADMIN` access, outsider denial, and not-found behavior.
+- Frontend test:
+  - `payments/page.test.tsx`: verifies decimal-like amount renders as currency and not `не число`.
+
+### Verification Evidence (Local)
+
+- Backend: `corepack pnpm --filter backend test -- payments` -> passed (`2/2` suites).
+- Frontend: `corepack pnpm --filter frontend test -- src/app/payments/page.test.tsx` -> passed.
+- Type/build checks:
+  - `corepack pnpm --filter backend build` -> passed.
+  - `corepack pnpm --filter frontend type-check` -> passed.
+
+### Production Recheck Note
+
+- Existing production check on `https://milyidom.com/listings/seed_msk_loft` at `360px` still showed overflow before this deploy cycle.
+- Re-validate on production after deploying commit from this fix cycle.

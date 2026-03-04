@@ -481,10 +481,10 @@ export function ListingDetailClient({ listingId }: ListingDetailClientProps) {
     <div className="bg-sand-50 pb-16">
       <div className="bg-white">
         <div className="mx-auto grid max-w-content-2xl gap-4 px-4 py-6 sm:px-6 lg:grid-cols-12 lg:px-10">
-          <div className="lg:col-span-8">
-            <h1 className="text-3xl font-serif text-slate-900">{listing.title}</h1>
+          <div className="min-w-0 lg:col-span-8">
+            <h1 className="break-words text-3xl font-serif text-slate-900">{listing.title}</h1>
             <div className="mt-2 flex flex-wrap items-center gap-3 text-sm text-slate-600">
-              <span>
+              <span className="break-words">
                 {listing.city}, {listing.country}
               </span>
               {stats && (
@@ -497,7 +497,7 @@ export function ListingDetailClient({ listingId }: ListingDetailClientProps) {
               )}
             </div>
           </div>
-          <div className="flex items-start justify-end gap-3 lg:col-span-4">
+          <div className="flex flex-wrap items-start gap-2 sm:gap-3 lg:col-span-4 lg:justify-end">
             <Button variant="ghost" onClick={() => window.history.back()}>
               Назад
             </Button>

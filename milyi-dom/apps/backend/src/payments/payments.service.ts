@@ -6,7 +6,7 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { BookingStatus, PaymentStatus, Prisma } from '@prisma/client';
+import { BookingStatus, PaymentStatus, Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreatePaymentIntentDto } from './dto/create-payment-intent.dto';
 import { MarkPaymentDto } from './dto/mark-payment.dto';
@@ -143,7 +143,7 @@ export class PaymentsService {
     });
   }
 
-  async getPaymentStatus(bookingId: string, userId: string) {
+  async getPaymentStatus(bookingId: string, userId: string, userRole: Role) {
     const booking = await this.prisma.booking.findUnique({
       where: { id: bookingId },
       include: {
@@ -156,7 +156,9 @@ export class PaymentsService {
       throw new NotFoundException('Booking not found');
     }
 
-    if (booking.guestId !== userId && booking.listing.hostId !== userId) {
+    const isParticipant = booking.guestId === userId || booking.listing.hostId === userId;
+    const isAdmin = userRole === Role.ADMIN;
+    if (!isParticipant && !isAdmin) {
       throw new ForbiddenException();
     }
 

@@ -106,7 +106,7 @@ export class PaymentsController {
     @Param('bookingId') bookingId: string,
     @CurrentUser() user: CurrentUserType,
   ) {
-    return this.paymentsService.getPaymentStatus(bookingId, user.id);
+    return this.paymentsService.getPaymentStatus(bookingId, user.id, user.role);
   }
 
   @Patch(':bookingId/refund')

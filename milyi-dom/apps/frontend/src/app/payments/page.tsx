@@ -14,6 +14,7 @@ import {
 import type { Payment } from '../../types/api';
 import { parseError } from '../../lib/api-client';
 import { useAuth } from '../../hooks/useAuth';
+import { decimalToNumber } from '../../lib/format';
 
 export default function PaymentsPage() {
   const { isAuthenticated } = useAuth();
@@ -146,9 +147,9 @@ export default function PaymentsPage() {
                 <div className="flex justify-between">
                   <dt>Сумма</dt>
                   <dd className="text-slate-900">
-                    {Number(payment.amount).toLocaleString('ru-RU', {
+                    {decimalToNumber(payment.amount).toLocaleString('ru-RU', {
                       style: 'currency',
-                      currency: payment.currency,
+                      currency: payment.currency || 'RUB',
                     })}
                   </dd>
                 </div>
