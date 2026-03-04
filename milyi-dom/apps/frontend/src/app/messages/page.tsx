@@ -38,6 +38,7 @@ function ConversationView({
   const [isTyping, setIsTyping] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const typingTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sendingRef = useRef(false);
 
   useConversationRoom(conversationId, socket);
 
@@ -124,11 +125,11 @@ function ConversationView({
     typingTimeout.current = setTimeout(() => emitTyping(false), 2000);
   };
 
-  const handleSend = async (event: FormEvent) => {
-    event.preventDefault();
+  const sendCurrentMessage = useCallback(async () => {
     const text = body.trim();
-    if (!text || sending) return;
+    if (!text || sendingRef.current) return;
 
+    sendingRef.current = true;
     setSending(true);
     try {
       const sent = await sendMessage({ conversationId, body: text });
@@ -139,8 +140,14 @@ function ConversationView({
     } catch (error) {
       toast.error(parseError(error).message);
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
+  }, [body, conversationId, emitTyping, onConversationUpdate]);
+
+  const handleSend = (event: FormEvent) => {
+    event.preventDefault();
+    void sendCurrentMessage();
   };
 
   return (
@@ -196,9 +203,20 @@ function ConversationView({
           placeholder="Напишите сообщение..."
           value={body}
           onChange={(event) => handleBodyChange(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
+              event.preventDefault();
+              void sendCurrentMessage();
+            }
+          }}
         />
         <div className="flex justify-end">
-          <Button className="w-full sm:w-auto" type="submit" disabled={sending || !body.trim()}>
+          <Button
+            className="w-full sm:w-auto"
+            type="submit"
+            onClick={() => void sendCurrentMessage()}
+            disabled={sending || !body.trim()}
+          >
             Отправить
           </Button>
         </div>

@@ -145,19 +145,19 @@ export default function ListingsPage() {
         <CompactFilters amenities={amenities} onApply={handleApplyFilters} initialFilters={filters} />
 
         {/* View Toggle */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             <span className="text-sm text-slate-500">
               {loading ? 'Загрузка...' : `Найдено ${results.meta.total} объявлений`}
             </span>
             {!loading && results.meta.total > 0 && <SaveSearchButton filters={filters} />}
           </div>
-          <div className="flex gap-1 rounded-xl border border-slate-200 bg-white p-1">
+          <div className="inline-flex max-w-full flex-wrap gap-1 rounded-xl border border-slate-200 bg-white p-1">
             {(['list', 'split', 'map'] as ViewMode[]).map((mode) => (
               <button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition ${
+                className={`whitespace-nowrap rounded-lg px-3 py-1.5 text-xs font-medium transition ${
                   viewMode === mode
                     ? 'bg-pine-600 text-white'
                     : 'text-slate-600 hover:bg-slate-100'

@@ -7,7 +7,27 @@ import { useAuthStore } from '../store/auth-store';
 // Singleton socket instance — persists across component re-renders
 let socketInstance: Socket | null = null;
 
-const WS_URL = process.env.NEXT_PUBLIC_WS_URL ?? 'http://localhost:4001';
+const FALLBACK_WS_URL = 'http://localhost:4001';
+
+const resolveWsUrl = () => {
+  const explicitWsUrl = process.env.NEXT_PUBLIC_WS_URL?.trim();
+  if (explicitWsUrl) {
+    return explicitWsUrl;
+  }
+
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL?.trim();
+  if (apiUrl) {
+    try {
+      return new URL(apiUrl).origin;
+    } catch {
+      return apiUrl.replace(/\/api\/?$/, '');
+    }
+  }
+
+  return FALLBACK_WS_URL;
+};
+
+const WS_URL = resolveWsUrl();
 
 export const WS_EVENT = {
   JOIN_CONVERSATION: 'join_conversation',

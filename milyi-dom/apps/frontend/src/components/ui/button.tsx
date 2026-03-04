@@ -32,10 +32,10 @@ const sizeStyles: Record<ButtonSize, string> = {
 export const Button = forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = 'primary', size = 'md', isLoading, children, ...props }, ref) => (
     <button
+      {...props}
       ref={ref}
       className={twMerge(baseStyles, variantStyles[variant], sizeStyles[size], className)}
       disabled={isLoading || props.disabled}
-      {...props}
     >
       {isLoading ? (
         <span className="flex items-center gap-2">

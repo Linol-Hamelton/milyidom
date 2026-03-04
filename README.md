@@ -164,3 +164,15 @@ NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
 | Typesense | 8108 | Full-text поиск |
 | Prometheus | 9090 | Метрики |
 | Grafana | 3001 | Дашборды (admin/milyi-dom-grafana) |
+
+## Release Update 2026-03-04
+
+Stability and security fixes delivered:
+- Fixed protected flow around host bookings page rendering: no host API call before role guard allows content.
+- Hardened realtime chat client socket endpoint resolution for production environments.
+- Hardened /messages send action to avoid duplicate submits and ensure click-triggered send path.
+- Improved mobile responsiveness of listings view-mode controls (no horizontal overflow on narrow screens).
+- Listing creation path remains protected by idempotency key support and extended frontend timeout.
+- Favorites and coordinates validation regressions remain covered by tests.
+
+Canonical deployment and smoke-check steps are documented in [DEPLOY_CANONICAL_2026-03-04.md](DEPLOY_CANONICAL_2026-03-04.md).
