@@ -339,3 +339,31 @@ For each item track:
 
 - Existing production check on `https://milyidom.com/listings/seed_msk_loft` at `360px` still showed overflow before this deploy cycle.
 - Re-validate on production after deploying commit from this fix cycle.
+
+## 13. Post-Deploy Verification (Production, 2026-03-05, commit 0200183)
+
+### Deploy Result
+
+- Server updated to `0200183` (`main` fast-forward).
+- `frontend` and `backend` rebuilt and restarted successfully.
+- Prisma migrations: `No pending migrations to apply`.
+
+### Health and Infra Notes
+
+- External health right after restart was briefly unstable (`502`) during warm-up.
+- Recheck after services settled:
+  - `https://api.milyidom.com/api/health` -> `200`,
+  - `https://api.milyidom.com/api/api/health` -> `200`.
+- Note: both routes still respond; proxy canonicalization remains a separate infra cleanup task.
+
+### Defect Recheck Outcome
+
+1. `/listings/seed_msk_loft` mobile overflow at `360px`:
+   - `scrollWidth == clientWidth`, horizontal overflow not reproduced (pass).
+
+2. `/payments` amount rendering:
+   - For real `POST /api/payments/intent -> 201` response with Decimal-like amount object,
+   - UI now displays numeric currency (`15 600,00 ₽`), not `не число ₽` (pass).
+
+3. `ADMIN` access to `GET /api/payments/:bookingId/status`:
+   - Rechecked via API with admin token on real booking id -> `200` with payment payload (pass).
