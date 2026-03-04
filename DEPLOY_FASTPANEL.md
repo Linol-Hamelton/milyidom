@@ -39,13 +39,23 @@ Important:
 Use custom directives for websocket and webhook reliability:
 
 ```nginx
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    '' close;
+}
+
 location /socket.io/ {
     proxy_pass http://127.0.0.1:4001;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
-    proxy_set_header Connection "upgrade";
+    proxy_set_header Connection $connection_upgrade;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_buffering off;
+    proxy_request_buffering off;
+    proxy_send_timeout 86400s;
     proxy_read_timeout 86400s;
 }
 
@@ -99,7 +109,22 @@ curl -fsS "https://api.milyidom.com/socket.io/?EIO=4&transport=polling"
 
 If this fails or websocket handshake logs show `400`, verify `location /socket.io/` proxy directives and upgrade headers.
 
-Fallback currently observed on some proxy setups:
+Websocket upgrade path check (from local/dev machine):
+
+```bash
+# polling transport must be 200
+curl -fsS "https://api.milyidom.com/socket.io/?EIO=4&transport=polling"
+
+# NOTE: /api/socket.io is NOT the canonical path in current setup and should return 404
+curl -i "https://api.milyidom.com/api/socket.io/?EIO=4&transport=polling"
+```
+
+Production behavior target:
+
+- if websocket upgrade succeeds: clients may switch from polling to websocket;
+- if websocket upgrade fails (`probe error: websocket error`), frontend should keep working over polling without breaking messaging.
+
+Fallback currently observed in production state (validated 2026-03-05):
 
 ```bash
 curl -fsS https://api.milyidom.com/api/api/health
@@ -129,7 +154,14 @@ Optional websocket override:
 
 ```env
 NEXT_PUBLIC_WS_URL=https://api.milyidom.com
+NEXT_PUBLIC_WS_TRANSPORTS=polling,websocket
+NEXT_PUBLIC_WS_UPGRADE_BACKOFF_MINUTES=30
 ```
+
+Runtime resilience note:
+
+- frontend now auto-downgrades to polling-only mode on websocket probe failures and stores temporary backoff in browser storage.
+- this prevents repeated websocket reconnect flapping when proxy upgrade path is misconfigured.
 
 ## 7. Post-Deploy Smoke Checklist
 

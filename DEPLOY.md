@@ -63,7 +63,17 @@ curl -fsS "https://api.milyidom.com/socket.io/?EIO=4&transport=polling"
 
 If this fails or websocket handshake in browser logs returns `400`, verify reverse-proxy websocket upgrade config for `/socket.io/`.
 
-If the check fails but backend is up, test current fallback path:
+Path sanity check:
+
+```bash
+# current canonical socket path
+curl -fsS "https://api.milyidom.com/socket.io/?EIO=4&transport=polling"
+
+# should be 404 in current setup (non-canonical)
+curl -i "https://api.milyidom.com/api/socket.io/?EIO=4&transport=polling"
+```
+
+If the check fails but backend is up, test current fallback path (validated in production on 2026-03-05):
 
 ```bash
 curl -fsS https://api.milyidom.com/api/api/health
@@ -133,6 +143,10 @@ Run these manually or script them:
 - Do not commit `.env` or `.env.local` files.
 - Use `git pull --ff-only` to avoid accidental merge commits on server.
 - Keep deployment docs aligned with actual reverse proxy behavior.
+- For frontend websocket resilience, use:
+  - `NEXT_PUBLIC_WS_TRANSPORTS=polling,websocket`
+  - `NEXT_PUBLIC_WS_UPGRADE_BACKOFF_MINUTES=30`
+  - client auto-downgrades to polling on websocket probe failures.
 - Run migrations before final acceptance checks.
 - Preserve `restart: unless-stopped` in compose services.
 

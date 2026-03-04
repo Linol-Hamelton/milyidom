@@ -8,6 +8,7 @@ import { useAuthStore } from '../store/auth-store';
 let socketInstance: Socket | null = null;
 
 const FALLBACK_WS_URL = 'http://localhost:4001';
+const WS_UPGRADE_BACKOFF_KEY = 'milyi-dom-ws-upgrade-backoff-until';
 
 const resolveWsUrl = () => {
   const explicitWsUrl = process.env.NEXT_PUBLIC_WS_URL?.trim();
@@ -35,8 +36,9 @@ const resolveSocketPath = () => {
   return explicitPath.startsWith('/') ? explicitPath : `/${explicitPath}`;
 };
 
-const resolveSocketTransports = (): Array<'polling' | 'websocket'> => {
-  const raw = process.env.NEXT_PUBLIC_WS_TRANSPORTS?.trim();
+export const parseSocketTransports = (
+  raw: string | undefined | null,
+): Array<'polling' | 'websocket'> => {
   if (!raw) return ['polling'];
 
   const parsed = raw
@@ -47,8 +49,48 @@ const resolveSocketTransports = (): Array<'polling' | 'websocket'> => {
   return parsed.length > 0 ? parsed : ['polling'];
 };
 
+const resolveSocketTransports = (): Array<'polling' | 'websocket'> =>
+  parseSocketTransports(process.env.NEXT_PUBLIC_WS_TRANSPORTS?.trim());
+
+export const parseUpgradeBackoffMinutes = (
+  raw: string | undefined | null,
+) => {
+  const parsed = Number(raw ?? '30');
+  if (!Number.isFinite(parsed) || parsed <= 0) return 30;
+  return parsed;
+};
+
+const resolveUpgradeBackoffMinutes = () =>
+  parseUpgradeBackoffMinutes(process.env.NEXT_PUBLIC_WS_UPGRADE_BACKOFF_MINUTES?.trim());
+
+const getUpgradeBackoffUntil = () => {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = window.localStorage.getItem(WS_UPGRADE_BACKOFF_KEY);
+    const parsed = Number(raw ?? '0');
+    return Number.isFinite(parsed) ? parsed : 0;
+  } catch {
+    return 0;
+  }
+};
+
+const isUpgradeBackoffActive = () => getUpgradeBackoffUntil() > Date.now();
+
+const activateUpgradeBackoff = (minutes: number) => {
+  if (typeof window === 'undefined') return;
+  try {
+    const until = Date.now() + minutes * 60 * 1000;
+    window.localStorage.setItem(WS_UPGRADE_BACKOFF_KEY, String(until));
+  } catch {
+    // ignore storage failures
+  }
+};
+
+export const isWebsocketProbeError = (message: string) => /websocket|probe error/i.test(message);
+
 const WS_PATH = resolveSocketPath();
 const WS_TRANSPORTS = resolveSocketTransports();
+const WS_UPGRADE_BACKOFF_MINUTES = resolveUpgradeBackoffMinutes();
 
 export const WS_EVENT = {
   JOIN_CONVERSATION: 'join_conversation',
@@ -100,18 +142,52 @@ export function useSocketConnect() {
       return;
     }
 
+    const hasPollingFallback = WS_TRANSPORTS.includes('polling');
+    const shouldForcePolling =
+      hasPollingFallback &&
+      WS_TRANSPORTS.includes('websocket') &&
+      isUpgradeBackoffActive();
+    const effectiveTransports: Array<'polling' | 'websocket'> = shouldForcePolling
+      ? ['polling']
+      : [...WS_TRANSPORTS];
+
     const socket = io(WS_URL, {
       auth: { token: accessToken },
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
       path: WS_PATH,
-      transports: WS_TRANSPORTS,
-      upgrade: WS_TRANSPORTS.includes('websocket'),
+      transports: effectiveTransports,
+      upgrade: effectiveTransports.includes('websocket'),
     });
 
+    const downgradeToPolling = (reason: string) => {
+      if (!hasPollingFallback) return;
+      const currentTransports = (socket.io.opts.transports ?? []) as string[];
+      const alreadyPollingOnly =
+        currentTransports.length === 1 &&
+        currentTransports[0] === 'polling' &&
+        socket.io.opts.upgrade === false;
+      if (alreadyPollingOnly) return;
+
+      activateUpgradeBackoff(WS_UPGRADE_BACKOFF_MINUTES);
+      socket.io.opts.transports = ['polling'];
+      socket.io.opts.upgrade = false;
+      if (!socket.connected) {
+        socket.connect();
+      }
+      console.warn('[WS] Downgraded to polling-only mode:', reason);
+    };
+
     socket.on('connect', () => {
-      console.debug('[WS] Connected:', socket.id);
+      const transport = socket.io.engine?.transport?.name;
+      console.debug('[WS] Connected:', socket.id, 'transport:', transport);
+      socket.io.engine?.on('upgradeError', (err: Error) => {
+        const message = err?.message ?? 'upgrade error';
+        if (isWebsocketProbeError(message)) {
+          downgradeToPolling(message);
+        }
+      });
       setSocket(socket);
     });
 
@@ -122,6 +198,9 @@ export function useSocketConnect() {
 
     socket.on('connect_error', (err) => {
       console.warn('[WS] Connection error:', err.message);
+      if (isWebsocketProbeError(err.message)) {
+        downgradeToPolling(err.message);
+      }
     });
 
     socketInstance = socket;
