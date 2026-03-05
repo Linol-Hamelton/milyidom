@@ -9,6 +9,8 @@ let socketInstance: Socket | null = null;
 
 const FALLBACK_WS_URL = 'http://localhost:4001';
 const WS_UPGRADE_BACKOFF_KEY = 'milyi-dom-ws-upgrade-backoff-until';
+const CANONICAL_SOCKET_PATH = '/socket.io';
+const LEGACY_SOCKET_PATH = '/api/socket.io';
 
 const resolveWsUrl = () => {
   const explicitWsUrl = process.env.NEXT_PUBLIC_WS_URL?.trim();
@@ -30,8 +32,7 @@ const resolveWsUrl = () => {
 
 const WS_URL = resolveWsUrl();
 
-const resolveSocketPath = () => {
-  const explicitPath = process.env.NEXT_PUBLIC_WS_PATH?.trim();
+const resolveSocketPath = (explicitPath?: string | null) => {
   if (!explicitPath) return '/socket.io';
   return explicitPath.startsWith('/') ? explicitPath : `/${explicitPath}`;
 };
@@ -87,8 +88,13 @@ const activateUpgradeBackoff = (minutes: number) => {
 };
 
 export const isWebsocketProbeError = (message: string) => /websocket|probe error/i.test(message);
+export const isSocketPathError = (message: string) => /xhr poll error|404|not found/i.test(message);
 
-const WS_PATH = resolveSocketPath();
+const EXPLICIT_WS_PATH = process.env.NEXT_PUBLIC_WS_PATH?.trim() ?? null;
+const WS_PATH = resolveSocketPath(EXPLICIT_WS_PATH);
+const WS_FALLBACK_PATH =
+  WS_PATH === CANONICAL_SOCKET_PATH ? LEGACY_SOCKET_PATH : CANONICAL_SOCKET_PATH;
+const HAS_EXPLICIT_WS_PATH = !!EXPLICIT_WS_PATH;
 const WS_TRANSPORTS = resolveSocketTransports();
 const WS_UPGRADE_BACKOFF_MINUTES = resolveUpgradeBackoffMinutes();
 
@@ -150,16 +156,30 @@ export function useSocketConnect() {
     const effectiveTransports: Array<'polling' | 'websocket'> = shouldForcePolling
       ? ['polling']
       : [...WS_TRANSPORTS];
+    let activeSocketPath = WS_PATH;
 
     const socket = io(WS_URL, {
       auth: { token: accessToken },
       reconnection: true,
       reconnectionAttempts: 5,
       reconnectionDelay: 1000,
-      path: WS_PATH,
+      path: activeSocketPath,
       transports: effectiveTransports,
       upgrade: effectiveTransports.includes('websocket'),
     });
+
+    const switchSocketPath = (reason: string) => {
+      if (HAS_EXPLICIT_WS_PATH) return false;
+      if (activeSocketPath === WS_FALLBACK_PATH) return false;
+      activeSocketPath = WS_FALLBACK_PATH;
+      socket.io.opts.path = WS_FALLBACK_PATH;
+      if (socket.connected) {
+        socket.disconnect();
+      }
+      socket.connect();
+      console.warn('[WS] Switched socket path to fallback:', WS_FALLBACK_PATH, 'reason:', reason);
+      return true;
+    };
 
     const downgradeToPolling = (reason: string) => {
       if (!hasPollingFallback) return;
@@ -181,7 +201,7 @@ export function useSocketConnect() {
 
     socket.on('connect', () => {
       const transport = socket.io.engine?.transport?.name;
-      console.debug('[WS] Connected:', socket.id, 'transport:', transport);
+      console.debug('[WS] Connected:', socket.id, 'transport:', transport, 'path:', activeSocketPath);
       socket.io.engine?.on('upgradeError', (err: Error) => {
         const message = err?.message ?? 'upgrade error';
         if (isWebsocketProbeError(message)) {
@@ -198,6 +218,9 @@ export function useSocketConnect() {
 
     socket.on('connect_error', (err) => {
       console.warn('[WS] Connection error:', err.message);
+      if (isSocketPathError(err.message) && switchSocketPath(err.message)) {
+        return;
+      }
       if (isWebsocketProbeError(err.message)) {
         downgradeToPolling(err.message);
       }

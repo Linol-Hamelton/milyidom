@@ -51,6 +51,8 @@ const CREATE_IDEMPOTENCY_TTL_SECONDS = 60 * 60 * 24;
 const CREATE_IDEMPOTENCY_LOCK_TTL_SECONDS = 120;
 const CREATE_IDEMPOTENCY_WAIT_MS = 12_000;
 const CREATE_IDEMPOTENCY_POLL_MS = 300;
+const SEEDED_LISTING_PREFIX = 'seed_';
+const SEEDED_LISTING_IMAGE_COUNT = 4;
 
 type ListingWithRelations = Prisma.ListingGetPayload<{
   include: typeof BASE_INCLUDE;
@@ -146,6 +148,10 @@ export class ListingsService {
       return url ?? null;
     }
 
+    if (url.startsWith('/images/')) {
+      return url;
+    }
+
     if (/^https?:\/\//i.test(url)) {
       return url;
     }
@@ -159,6 +165,29 @@ export class ListingsService {
     } catch {
       return `${normalizedBase}${url.replace(/^\/+/, '')}`;
     }
+  }
+
+  private resolveSeededListingImageFallback(position: number): string {
+    const imageIndex = ((Math.max(position, 0) % SEEDED_LISTING_IMAGE_COUNT) + 1);
+    return `/images/listing-${imageIndex}.jpg`;
+  }
+
+  private normalizeListingImageUrl(
+    listingId: string,
+    url: string | null | undefined,
+    position: number,
+  ): string | null {
+    if (!url) {
+      return url ?? null;
+    }
+
+    const isSeededListing = listingId.startsWith(SEEDED_LISTING_PREFIX);
+    const isUnsplashUrl = /^https?:\/\/images\.unsplash\.com\/photo-/i.test(url);
+    if (isSeededListing && isUnsplashUrl) {
+      return this.resolveSeededListingImageFallback(position);
+    }
+
+    return this.normalizeImageUrl(url);
   }
 
   private serializeListing(listing: ListingWithRelations): ListingSummary {
@@ -175,7 +204,7 @@ export class ListingsService {
 
     const normalizedImages: ListingImageWithUrl[] = images.map((image) => ({
       ...image,
-      url: this.normalizeImageUrl(image.url),
+      url: this.normalizeListingImageUrl(listing.id, image.url, image.position),
     }));
 
     return {

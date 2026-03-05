@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  isSocketPathError,
   isWebsocketProbeError,
   parseSocketTransports,
   parseUpgradeBackoffMinutes,
@@ -26,5 +27,11 @@ describe('useSocket helpers', () => {
     expect(isWebsocketProbeError('websocket error')).toBe(true);
     expect(isWebsocketProbeError('probe error: Error: websocket error')).toBe(true);
     expect(isWebsocketProbeError('xhr poll error')).toBe(false);
+  });
+
+  it('detects socket path mismatch failures', () => {
+    expect(isSocketPathError('xhr poll error')).toBe(true);
+    expect(isSocketPathError('Not Found')).toBe(true);
+    expect(isSocketPathError('websocket error')).toBe(false);
   });
 });
