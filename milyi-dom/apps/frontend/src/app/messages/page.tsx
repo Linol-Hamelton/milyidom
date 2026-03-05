@@ -205,6 +205,12 @@ function ConversationView({
           placeholder="Напишите сообщение..."
           value={body}
           onChange={(event) => handleBodyChange(event.target.value)}
+          onBlur={(event) => {
+            const nextTarget = event.relatedTarget as HTMLElement | null;
+            if (nextTarget?.dataset.sendMessageButton === "true") {
+              void sendCurrentMessage();
+            }
+          }}
           onKeyDown={(event) => {
             if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
               event.preventDefault();
@@ -216,6 +222,7 @@ function ConversationView({
           <Button
             className="w-full active:scale-100 sm:w-auto"
             type="button"
+            data-send-message-button="true"
             onPointerDown={(event) => {
               if (event.pointerType === "mouse" && event.button !== 0) return;
               event.preventDefault();
