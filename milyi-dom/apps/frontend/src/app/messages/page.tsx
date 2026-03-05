@@ -146,8 +146,8 @@ function ConversationView({
     }
   }, [body, conversationId, emitTyping, onConversationUpdate]);
 
-  const handleSend = (event: FormEvent) => {
-    event.preventDefault();
+  const handleSend = (event?: FormEvent) => {
+    event?.preventDefault();
     void sendCurrentMessage();
   };
 
@@ -214,8 +214,9 @@ function ConversationView({
         />
         <div className="flex justify-end">
           <Button
-            className="w-full sm:w-auto"
-            type="submit"
+            className="w-full active:scale-100 sm:w-auto"
+            type="button"
+            onClick={() => handleSend()}
             disabled={sending}
           >
             Отправить
