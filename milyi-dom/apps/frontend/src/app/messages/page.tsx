@@ -216,6 +216,11 @@ function ConversationView({
           <Button
             className="w-full active:scale-100 sm:w-auto"
             type="button"
+            onPointerDown={(event) => {
+              if (event.pointerType === "mouse" && event.button !== 0) return;
+              event.preventDefault();
+              void sendCurrentMessage();
+            }}
             onClick={() => handleSend()}
             disabled={sending}
           >
