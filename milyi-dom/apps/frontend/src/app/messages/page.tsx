@@ -225,7 +225,13 @@ function ConversationView({
             data-send-message-button="true"
             onPointerDown={(event) => {
               if (event.pointerType === "mouse" && event.button !== 0) return;
-              event.preventDefault();
+              void sendCurrentMessage();
+            }}
+            onMouseDown={(event) => {
+              if (event.button !== 0) return;
+              void sendCurrentMessage();
+            }}
+            onTouchStart={() => {
               void sendCurrentMessage();
             }}
             onClick={() => handleSend()}
