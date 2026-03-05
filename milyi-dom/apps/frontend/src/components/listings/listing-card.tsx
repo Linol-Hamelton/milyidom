@@ -44,6 +44,7 @@ export function ListingCard({ listing, href }: ListingCardProps) {
 
   const currentImage = sortedImages[activeIdx] ?? sortedImages[0];
   const imageSrc = currentImage ? getImageUrl(currentImage.url) : '/images/listing-1.jpg';
+  const shouldUnoptimizeImage = imageSrc.startsWith('http') || imageSrc.startsWith('/images/');
   const normalizedPrice = decimalToNumber(listing.basePrice);
   const price = Number.isFinite(normalizedPrice) ? normalizedPrice : 0;
   const linkHref = href ?? `/listings/${listing.id}`;
@@ -81,7 +82,7 @@ export function ListingCard({ listing, href }: ListingCardProps) {
               loading="lazy"
               placeholder="blur"
               blurDataURL={listingBlurDataURL}
-              unoptimized={imageSrc.startsWith('http')}
+              unoptimized={shouldUnoptimizeImage}
             />
 
             {/* Prev / Next arrows */}
