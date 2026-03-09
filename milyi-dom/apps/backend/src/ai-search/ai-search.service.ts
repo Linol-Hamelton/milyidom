@@ -1,13 +1,12 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 
 export interface AiSearchQuery {
   query: string;
 }
 
 export interface AiSearchResult {
-  /** Structured search params extracted by Claude */
   params: {
     q: string;
     city?: string;
@@ -20,72 +19,67 @@ export interface AiSearchResult {
     sortBy?: 'rating' | 'pricePerNight' | 'reviewsCount';
     sortOrder?: 'asc' | 'desc';
   };
-  /** Human-readable summary of what Claude understood */
   interpretation: string;
 }
 
-const SYSTEM_PROMPT = `You are a search assistant for "Милый Дом" — a Russian short-term rental platform.
-
-Your job is to interpret a user's natural language search query and extract structured search parameters.
-
-Respond ONLY with valid JSON matching this exact schema (no markdown, no explanation):
-{
-  "q": "keywords for full-text search (relevant words from query)",
-  "city": "city name if mentioned, else null",
-  "country": "country if mentioned, else null",
-  "minPrice": number or null,
-  "maxPrice": number or null,
-  "maxGuests": number or null,
-  "bedroomsCount": number or null,
-  "amenities": ["wifi", "pool", ...] or [],
-  "sortBy": "rating" | "pricePerNight" | "reviewsCount" | null,
-  "sortOrder": "asc" | "desc" | null,
-  "interpretation": "one sentence in Russian describing what you understood"
-}
-
-Rules:
-- Extract any price hints (budget, cheap, expensive, etc.)
-- Recognize Russian city names and translate to their canonical Russian form
-- Map descriptive amenities to standard names: wifi, pool, parking, gym, kitchen, ac, beach, mountain, sauna, fireplace
-- If user wants "cheap" or "budget" → sortBy pricePerNight, sortOrder asc
-- If user wants "best rated" or "top" → sortBy rating, sortOrder desc
-- Prices in Russian context: "недорого" < 3000 RUB, "дорого" > 15000 RUB
-- Keep q field focused: only the key descriptive words, not city/price/guest info`;
+const SYSTEM_PROMPT = [
+  'You are a search assistant for "Милый Дом" — a Russian short-term rental platform.',
+  'Your job is to interpret a user natural language search query and extract structured search parameters.',
+  'Respond ONLY with valid JSON (no markdown, no explanation):',
+  '{',
+  '  "q": "keywords for full-text search",',
+  '  "city": "city name if mentioned, else null",',
+  '  "country": "country if mentioned, else null",',
+  '  "minPrice": number or null,',
+  '  "maxPrice": number or null,',
+  '  "maxGuests": number or null,',
+  '  "bedroomsCount": number or null,',
+  '  "amenities": ["wifi","pool",...] or [],',
+  '  "sortBy": "rating"|"pricePerNight"|"reviewsCount"|null,',
+  '  "sortOrder": "asc"|"desc"|null,',
+  '  "interpretation": "one sentence in Russian describing what you understood"',
+  '}',
+  'Rules:',
+  '- Extract price hints (budget, cheap, expensive)',
+  '- Recognize Russian city names',
+  '- Map amenities: wifi, pool, parking, gym, kitchen, ac, beach, mountain, sauna, fireplace',
+  '- cheap/budget -> sortBy pricePerNight, sortOrder asc',
+  '- best rated/top -> sortBy rating, sortOrder desc',
+  '- Russian prices: недорого < 3000 RUB, дорого > 15000 RUB',
+].join('\n');
 
 @Injectable()
 export class AiSearchService {
   private readonly logger = new Logger(AiSearchService.name);
-  private readonly client: Anthropic | null;
+  private readonly client: OpenAI | null;
 
   constructor(private readonly config: ConfigService) {
-    const apiKey = config.get<string>('anthropic.apiKey');
+    const apiKey = config.get<string>('deepseek.apiKey');
     if (apiKey) {
-      this.client = new Anthropic({ apiKey });
-      this.logger.log('Anthropic AI client initialized');
+      this.client = new OpenAI({ apiKey, baseURL: 'https://api.deepseek.com' });
+      this.logger.log('DeepSeek AI client initialized');
     } else {
       this.client = null;
-      this.logger.warn('ANTHROPIC_API_KEY not set — AI search disabled');
+      this.logger.warn('DEEPSEEK_API_KEY not set — AI search disabled');
     }
   }
 
   async interpret(query: string): Promise<AiSearchResult> {
     if (!this.client) {
-      // Graceful degradation: treat query as plain text search
-      return {
-        params: { q: query },
-        interpretation: 'AI-поиск недоступен. Ищем по тексту запроса.',
-      };
+      return { params: { q: query }, interpretation: 'AI-поиск недоступен. Ищем по тексту запроса.' };
     }
 
     try {
-      const message = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+      const completion = await this.client.chat.completions.create({
+        model: 'deepseek-chat',
         max_tokens: 512,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: query }],
+        messages: [
+          { role: 'system', content: SYSTEM_PROMPT },
+          { role: 'user', content: query },
+        ],
       });
 
-      const raw = message.content[0].type === 'text' ? message.content[0].text : '';
+      const raw = completion.choices[0]?.message?.content ?? '';
       const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
       const parsed = JSON.parse(text) as {
         q: string;
@@ -118,10 +112,7 @@ export class AiSearchService {
       };
     } catch (err) {
       this.logger.warn(`AI search interpretation failed: ${String(err)}`);
-      return {
-        params: { q: query },
-        interpretation: 'Не удалось разобрать запрос. Ищем по тексту.',
-      };
+      return { params: { q: query }, interpretation: 'Не удалось разобрать запрос. Ищем по тексту.' };
     }
   }
 
@@ -129,20 +120,24 @@ export class AiSearchService {
     if (!this.client || reviews.length === 0) return '';
 
     const reviewText = reviews
-      .slice(0, 50) // limit to 50 reviews
+      .slice(0, 50)
       .map((r) => `[${r.rating}/5] ${r.comment}`)
       .join('\n');
 
     try {
-      const message = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+      const completion = await this.client.chat.completions.create({
+        model: 'deepseek-chat',
         max_tokens: 300,
-        system:
-          'Ты помощник для агрегации отзывов. Напиши краткое нейтральное резюме отзывов гостей (2-3 предложения на русском языке). Укажи главные плюсы и минусы.',
-        messages: [{ role: 'user', content: reviewText }],
+        messages: [
+          {
+            role: 'system',
+            content:
+              'Ты помощник для агрегации отзывов. Напиши краткое нейтральное резюме отзывов гостей (2-3 предложения на русском языке). Укажи главные плюсы и минусы.',
+          },
+          { role: 'user', content: reviewText },
+        ],
       });
-
-      return message.content[0].type === 'text' ? message.content[0].text : '';
+      return completion.choices[0]?.message?.content ?? '';
     } catch (err) {
       this.logger.warn(`Review summary failed: ${String(err)}`);
       return '';
@@ -163,13 +158,16 @@ export class AiSearchService {
         setTimeout(() => reject(new Error('Fraud detection timed out')), 5000);
       });
 
-      const message = await Promise.race([
-        this.client.messages.create({
-          model: 'claude-haiku-4-5-20251001',
+      const completion = await Promise.race([
+        this.client.chat.completions.create({
+          model: 'deepseek-chat',
           max_tokens: 256,
-          system:
-            'You are a fraud detection system for a rental platform. Analyze the listing and respond ONLY with JSON: {"isFraud": boolean, "reason": "string"}. Flag fraud when: unrealistic pricing, copy-pasted generic text, suspicious claims, clearly fake location. Reason must be in Russian when isFraud is true, empty string otherwise.',
           messages: [
+            {
+              role: 'system',
+              content:
+                'You are a fraud detection system for a rental platform. Analyze the listing and respond ONLY with JSON: {"isFraud": boolean, "reason": "string"}. Flag fraud when: unrealistic pricing, copy-pasted generic text, suspicious claims, clearly fake location. Reason must be in Russian when isFraud is true, empty string otherwise.',
+            },
             {
               role: 'user',
               content: `Title: ${listing.title}\nCity: ${listing.city}, ${listing.country}\nBase price/night: ${listing.basePrice} RUB\nDescription: ${listing.description}`,
@@ -179,8 +177,7 @@ export class AiSearchService {
         timeoutPromise,
       ]);
 
-      const raw =
-        message.content[0].type === 'text' ? message.content[0].text : '{}';
+      const raw = completion.choices[0]?.message?.content ?? '{}';
       const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
       const result = JSON.parse(text) as { isFraud: boolean; reason: string };
       return { isFraud: result.isFraud ?? false, reason: result.reason ?? '' };
@@ -222,36 +219,31 @@ export class AiSearchService {
 
     if (!this.client) return fallback;
 
-    const prompt = `Listing data:
-- City: ${opts.city}
-- Type: ${opts.propertyType}, ${opts.bedrooms} bedrooms
-- Current price/night: ${opts.currentPrice} ${opts.currency}
-- Occupancy rate (last 12 months): ${opts.occupancyRate}%
-- Month: ${opts.month}
-
-Market data (same city, similar type):
-- Listings: ${opts.marketData.listingsCount}
-- Average price: ${opts.marketData.avgPrice} ${opts.currency}
-- Min: ${opts.marketData.minPrice} / Max: ${opts.marketData.maxPrice} ${opts.currency}
-- Average rating: ${opts.marketData.avgRating.toFixed(1)}`;
+    const prompt = [
+      `City: ${opts.city}, Type: ${opts.propertyType}, ${opts.bedrooms} bedrooms`,
+      `Current price/night: ${opts.currentPrice} ${opts.currency}`,
+      `Occupancy rate: ${opts.occupancyRate}%, Month: ${opts.month}`,
+      `Market avg: ${opts.marketData.avgPrice}, min: ${opts.marketData.minPrice}, max: ${opts.marketData.maxPrice}`,
+      `Market listings: ${opts.marketData.listingsCount}, avg rating: ${opts.marketData.avgRating.toFixed(1)}`,
+    ].join('\n');
 
     try {
-      const message = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+      const completion = await this.client.chat.completions.create({
+        model: 'deepseek-chat',
         max_tokens: 512,
-        system: `You are a dynamic pricing engine for a short-term rental platform.
-Analyze the listing and market data and respond ONLY with valid JSON (no markdown):
-{"suggestedPrice":<number>,"minPrice":<number>,"maxPrice":<number>,"rationale":"<1-2 sentences in Russian>","factors":["<factor>","<factor>"]}
-Rules:
-- suggestedPrice reflects demand, competition, occupancy, seasonality
-- minPrice = floor to protect brand value; maxPrice = peak ceiling
-- factors: 2-5 key Russian-language factors (e.g. "высокий сезон", "низкая заполняемость")
-- All prices in same currency as input
-- Conservative: don't suggest changes > 40% from current price`,
-        messages: [{ role: 'user', content: prompt }],
+        messages: [
+          {
+            role: 'system',
+            content:
+              'You are a dynamic pricing engine. Respond ONLY with valid JSON (no markdown): ' +
+              '{"suggestedPrice":<number>,"minPrice":<number>,"maxPrice":<number>,"rationale":"<Russian>","factors":["<factor>"]}. ' +
+              'Conservative: max 40% change from current price.',
+          },
+          { role: 'user', content: prompt },
+        ],
       });
 
-      const raw = message.content[0].type === 'text' ? message.content[0].text : '{}';
+      const raw = completion.choices[0]?.message?.content ?? '{}';
       const text = raw.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/i, '').trim();
       const result = JSON.parse(text) as {
         suggestedPrice: number;
@@ -273,25 +265,22 @@ Rules:
     }
   }
 
-  async translate(
-    text: string,
-    targetLanguage: string,
-  ): Promise<{ translated: string }> {
-    if (!this.client) {
-      return { translated: text };
-    }
+  async translate(text: string, targetLanguage: string): Promise<{ translated: string }> {
+    if (!this.client) return { translated: text };
 
     try {
-      const message = await this.client.messages.create({
-        model: 'claude-haiku-4-5-20251001',
+      const completion = await this.client.chat.completions.create({
+        model: 'deepseek-chat',
         max_tokens: 1024,
-        system: `You are a professional translator for a rental platform. Translate the provided text to ${targetLanguage}. Return ONLY the translated text, no explanations.`,
-        messages: [{ role: 'user', content: text }],
+        messages: [
+          {
+            role: 'system',
+            content: `You are a professional translator. Translate to ${targetLanguage}. Return ONLY translated text.`,
+          },
+          { role: 'user', content: text },
+        ],
       });
-
-      const translated =
-        message.content[0].type === 'text' ? message.content[0].text : text;
-      return { translated };
+      return { translated: completion.choices[0]?.message?.content ?? text };
     } catch (err) {
       this.logger.warn(`Translation failed: ${String(err)}`);
       return { translated: text };

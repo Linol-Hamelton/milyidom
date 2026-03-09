@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import toast from 'react-hot-toast';
+import { api } from '../../lib/api-client';
 
 export default function Newsletter() {
   const [email, setEmail] = useState('');
   const [submitted, setSubmitted] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [emailError, setEmailError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     const normalizedEmail = email.trim().toLowerCase();
@@ -22,11 +24,24 @@ export default function Newsletter() {
       return;
     }
 
-    // TODO: wire up real newsletter subscription endpoint
     setEmailError(null);
-    setSubmitted(true);
-    setEmail('');
-    toast.success('Подписка оформлена! Ждите подборки на почту.');
+    setLoading(true);
+    try {
+      await api.post('/newsletter/subscribe', { email: normalizedEmail });
+      setSubmitted(true);
+      setEmail('');
+      toast.success('Подписка оформлена! Ждите подборки на почту.');
+    } catch (err: unknown) {
+      const status = (err as { response?: { status?: number } })?.response?.status;
+      if (status === 409) {
+        toast.success('Вы уже подписаны на нашу рассылку.');
+        setSubmitted(true);
+      } else {
+        toast.error('Не удалось оформить подписку. Попробуйте позже.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -67,9 +82,10 @@ export default function Newsletter() {
             />
             <button
               type="submit"
-              className="rounded-full bg-pine-600 px-8 py-3 text-sm font-semibold text-white shadow transition hover:bg-pine-500"
+              disabled={loading}
+              className="rounded-full bg-pine-600 px-8 py-3 text-sm font-semibold text-white shadow transition hover:bg-pine-500 disabled:cursor-not-allowed disabled:opacity-60"
             >
-              Подписаться
+              {loading ? 'Подписываем...' : 'Подписаться'}
             </button>
           </form>
         )}

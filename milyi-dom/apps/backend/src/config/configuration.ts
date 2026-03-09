@@ -67,8 +67,8 @@ export default () => {
       port: parseInt(process.env.TYPESENSE_PORT || '8108', 10),
       apiKey: process.env.TYPESENSE_API_KEY || 'milyi-dom-typesense-dev-key',
     },
-    anthropic: {
-      apiKey: process.env.ANTHROPIC_API_KEY || '',
+    deepseek: {
+      apiKey: process.env.DEEPSEEK_API_KEY || '',
     },
     email: {
       host: process.env.SMTP_HOST,

@@ -179,6 +179,19 @@ export class EmailService {
     });
   }
 
+  async sendNewsletterWelcome(email: string): Promise<void> {
+    await this.send({
+      to: email,
+      subject: 'Вы подписались на рассылку — Милый Дом',
+      html: this.layout(`
+        <h1>Добро пожаловать в рассылку!</h1>
+        <p>Вы успешно подписались на рассылку <strong>Милый Дом</strong>.</p>
+        <p>Мы будем присылать вам лучшие предложения по аренде жилья и эксклюзивные спецпредложения.</p>
+        <p style="color:#888;font-size:13px">Если вы не подписывались, просто проигнорируйте это письмо.</p>
+      `),
+    });
+  }
+
   // ── Private helpers ──────────────────────────────────────────────────────────
 
   private async send(opts: {

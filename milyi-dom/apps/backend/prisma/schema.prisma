@@ -410,6 +410,14 @@ model SavedSearch {
   @@index([userId])
 }
 
+model NewsletterSubscriber {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  subscribedAt DateTime @default(now())
+
+  @@index([email])
+}
+
 model AuditLog {
   id           String      @id @default(cuid())
   // Who performed the action (null = unauthenticated)
