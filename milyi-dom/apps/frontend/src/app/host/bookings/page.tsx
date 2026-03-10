@@ -9,6 +9,7 @@ import { fetchHostBookings, updateBookingStatus } from '../../../services/bookin
 import type { Booking } from '../../../types/api';
 import { parseError } from '../../../lib/api-client';
 import { decimalToNumber } from '../../../lib/format';
+import EmptyState from '../../../components/ui/empty-state';
 
 const STATUS_RU: Record<string, string> = {
   PENDING: 'Ожидает подтверждения',
@@ -84,10 +85,12 @@ function HostBookingsContent() {
             ))}
           </div>
         ) : bookings.length === 0 ? (
-          <div className="mt-12 rounded-3xl border border-dashed border-pine-200 bg-white p-10 text-center">
-            <h2 className="text-lg font-semibold text-slate-900">Пока нет бронирований от гостей</h2>
-            <p className="mt-2 text-sm text-slate-500">Как только появятся новые заявки, они появятся здесь.</p>
-          </div>
+          <EmptyState
+            emoji="📋"
+            title="Пока нет бронирований от гостей"
+            description="Как только появятся новые заявки, они появятся здесь."
+            className="mt-12"
+          />
         ) : (
           <div className="mt-10 space-y-4">
             {bookings.map((booking) => (

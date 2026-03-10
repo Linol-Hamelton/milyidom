@@ -9,6 +9,7 @@ import { Skeleton } from '../../../components/ui/skeleton';
 import { fetchHostListings, updateListingStatus, deleteListing } from '../../../services/listings';
 import type { Listing } from '../../../types/api';
 import { parseError } from '../../../lib/api-client';
+import EmptyState from '../../../components/ui/empty-state';
 
 const STATUS_LABELS: Record<Listing['status'], string> = {
   DRAFT: 'Черновик',
@@ -84,10 +85,13 @@ export default function HostListingsPage() {
               ))}
             </div>
           ) : listings.length === 0 ? (
-            <div className="mt-12 rounded-3xl border border-dashed border-pine-200 bg-white p-10 text-center">
-              <h2 className="text-lg font-semibold text-slate-900">Пока нет объявлений</h2>
-              <p className="mt-2 text-sm text-slate-500">Добавьте первое размещение и откройте его для гостей.</p>
-            </div>
+            <EmptyState
+              emoji="🏠"
+              title="Пока нет объявлений"
+              description="Добавьте первое размещение и откройте его для гостей."
+              cta={{ label: 'Создать объявление', href: '/host/listings/new' }}
+              className="mt-12"
+            />
           ) : (
             <div className="mt-10 grid gap-4 lg:grid-cols-2">
               {listings.map((listing) => (

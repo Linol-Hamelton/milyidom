@@ -13,6 +13,7 @@ import {
 import type { Notification } from '../../types/api';
 import { parseError } from '../../lib/api-client';
 import { useAuth } from '../../hooks/useAuth';
+import EmptyState from '../../components/ui/empty-state';
 
 export default function NotificationsPage() {
   const { isAuthenticated } = useAuth();
@@ -82,10 +83,12 @@ export default function NotificationsPage() {
               ))}
             </div>
           ) : notifications && notifications.length === 0 ? (
-            <div className="mt-12 rounded-3xl border border-dashed border-pine-200 bg-white p-10 text-center">
-              <h2 className="text-lg font-semibold text-slate-900">Новых уведомлений нет</h2>
-              <p className="mt-2 text-sm text-slate-500">Мы оповестим вас, как только появятся важные события.</p>
-            </div>
+            <EmptyState
+              emoji="🔔"
+              title="Новых уведомлений нет"
+              description="Мы оповестим вас, как только появятся важные события."
+              className="mt-12"
+            />
           ) : (
             <div className="mt-10 space-y-4">
               {notifications?.map((notification) => (

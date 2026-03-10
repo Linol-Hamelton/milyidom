@@ -13,6 +13,7 @@ import {
 } from "../../services/messages";
 import type { Conversation, Message } from "../../types/api";
 import { parseError } from "../../lib/api-client";
+import EmptyState from "../../components/ui/empty-state";
 import { useAuth } from "../../hooks/useAuth";
 import {
   useConversationRoom,
@@ -327,7 +328,11 @@ export default function MessagesPage() {
                     <div key={index} className="h-14 animate-pulse rounded-2xl bg-white" />
                   ))
                 ) : conversations.length === 0 ? (
-                  <p className="text-sm text-slate-500">Переписок пока нет.</p>
+                  <EmptyState
+                    emoji="💬"
+                    title="Переписок пока нет"
+                    description="Когда вы напишете хозяину объявления, диалог появится здесь."
+                  />
                 ) : (
                   conversations.map((conversation) => (
                     <button
