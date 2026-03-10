@@ -14,6 +14,7 @@ import { SearchService } from '../search/search.service';
 import { AiSearchService } from '../ai-search/ai-search.service';
 import { CacheService } from '../cache/cache.service';
 import { StorageService } from '../storage/storage.service';
+import { ListingQueueService } from '../queue/listing-queue.service';
 import { CreateListingDto } from './dto/create-listing.dto';
 import { SearchListingsDto } from './dto/search-listings.dto';
 import { UpdateListingDto } from './dto/update-listing.dto';
@@ -100,6 +101,7 @@ export class ListingsService {
     private readonly aiSearchService: AiSearchService,
     private readonly cacheService: CacheService,
     private readonly storageService: StorageService,
+    private readonly listingQueueService: ListingQueueService,
   ) {
     const configuredUrl = this.configService.get<string>('images.baseUrl');
     this.imageBaseUrl = (
@@ -311,20 +313,6 @@ export class ListingsService {
     }
 
     try {
-      // AI fraud detection: reject suspicious listings before persisting
-      const fraud = await this.aiSearchService.detectFraud({
-        title: dto.title,
-        description: dto.description,
-        basePrice: dto.basePrice,
-        city: dto.city,
-        country: dto.country,
-      });
-      if (fraud.isFraud) {
-        throw new BadRequestException(
-          `Объявление отклонено системой безопасности: ${fraud.reason}`,
-        );
-      }
-
       const slug = await this.generateSlug(dto.title);
 
       const listing = await this.prisma.listing.create({
@@ -386,6 +374,15 @@ export class ListingsService {
 
       void this.searchService.indexListing(this.toSearchDocument(listing));
 
+      void this.listingQueueService.enqueueFraudCheck({
+        listingId: listing.id,
+        title: listing.title,
+        description: listing.description ?? '',
+        basePrice: this.toNumber(listing.basePrice),
+        city: listing.city,
+        country: listing.country,
+      });
+
       const serialized = this.serializeListing(listing);
 
       if (idempotencyCacheKey) {
@@ -395,6 +392,8 @@ export class ListingsService {
           CREATE_IDEMPOTENCY_TTL_SECONDS,
         );
       }
+
+      void this.cacheService.del('listings:all');
 
       return serialized;
     } finally {
@@ -479,18 +478,24 @@ export class ListingsService {
     }
 
     void this.searchService.indexListing(this.toSearchDocument(listing));
+    void this.cacheService.del('listings:all');
 
     return this.serializeListing(listing);
   }
 
   async findAll() {
-    const listings = await this.prisma.listing.findMany({
-      where: { status: ListingStatus.PUBLISHED },
-      include: BASE_INCLUDE,
-      orderBy: { createdAt: Prisma.SortOrder.desc },
-    });
-
-    return this.serializeListings(listings);
+    return this.cacheService.wrap(
+      'listings:all',
+      async () => {
+        const listings = await this.prisma.listing.findMany({
+          where: { status: ListingStatus.PUBLISHED },
+          include: BASE_INCLUDE,
+          orderBy: { createdAt: Prisma.SortOrder.desc },
+        });
+        return this.serializeListings(listings);
+      },
+      30,
+    );
   }
 
   async findOne(id: string) {
@@ -725,6 +730,7 @@ export class ListingsService {
       include: BASE_INCLUDE,
     });
     void this.searchService.deleteListing(listingId);
+    void this.cacheService.del('listings:all');
     return this.serializeListing(listing);
   }
 

@@ -1,5 +1,8 @@
 packages:
   - apps/*
 
+onlyBuiltDependencies:
+  - ts-jest
+
 ignoredBuiltDependencies:
   - sharp

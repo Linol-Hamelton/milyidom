@@ -25,3 +25,10 @@ export const NOTIFICATION_JOB = {
 export const PAYOUT_JOB = {
   PROCESS: 'process-payout',
 } as const;
+
+// Listing job names
+export const LISTING_JOB = {
+  FRAUD_CHECK: 'fraud-check',
+} as const;
+
+export const LISTING_QUEUE = 'listing';

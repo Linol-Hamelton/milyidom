@@ -9,6 +9,7 @@ describe('ListingsService image normalization', () => {
       {} as any,
       {} as any,
       {} as any,
+      {} as any,
     );
 
   it('replaces seed listing unsplash urls with stable local images', () => {

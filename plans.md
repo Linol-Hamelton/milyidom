@@ -367,3 +367,60 @@ For each item track:
 
 3. `ADMIN` access to `GET /api/payments/:bookingId/status`:
    - Rechecked via API with admin token on real booking id -> `200` with payment payload (pass).
+
+## 14. Extended Regression (Production, 2026-03-05, post-0200183)
+
+### Scope
+
+- Focus:
+  - mobile/tablet responsive regression,
+  - synthetic booking/payment end-to-end flows,
+  - role checks for `GUEST`, `HOST`, `ADMIN`.
+- Real external payment processing was not executed (YooKassa not configured); manual/offline payment path validated.
+
+### Responsive Matrix (Overflow Check)
+
+- Method:
+  - browser automation measured `scrollWidth - clientWidth` for each route.
+- Viewports:
+  - `360x812`, `768x1024`.
+
+`GUEST` routes validated:
+- `/`, `/listings`, `/listings/seed_msk_loft`, `/bookings`, `/payments`, `/messages`, `/favorites`, `/profile`.
+- Result: `overflowPx = 0` on all routes (pass).
+
+`HOST` routes validated:
+- `/host/dashboard`, `/host/listings`, `/host/bookings`, `/host/payouts`, `/messages`, `/payments`.
+- Result: `overflowPx = 0` on all routes (pass).
+
+`ADMIN` routes validated:
+- `/admin/users`, `/admin/listings`, `/admin/analytics`, `/host/bookings`, `/host/payouts`, `/payments`.
+- Result: `overflowPx = 0` on all routes (pass).
+
+### Synthetic Booking/Payment E2E
+
+1. Created fresh booking as `GUEST`:
+   - listing: `seed_msk_loft`,
+   - dates: `2026-03-20` -> `2026-03-22`,
+   - API: `POST /api/bookings -> 201` (pass).
+
+2. Payment lifecycle on fresh booking:
+   - `GUEST` create intent: `POST /api/payments/intent -> 201` (pass),
+   - `GUEST` status: `GET /api/payments/:bookingId/status -> 200` (pass),
+   - `GUEST` confirm/refund: `403/403` (expected, pass),
+   - `HOST` confirm: `PATCH /api/payments/:bookingId/confirm -> 200` (pass),
+   - `HOST` refund: `PATCH /api/payments/:bookingId/refund -> 200` (pass),
+   - `ADMIN` status: `GET /api/payments/:bookingId/status -> 200` before/after refund (pass).
+
+3. UI validation for payment amount formatting:
+   - `/payments` after successful intent on real booking,
+   - amount renders as numeric currency (`10 700,00 ₽`), no `не число ₽` (pass).
+
+4. UI validation for mobile booking creation:
+   - `GUEST` on `/listings/seed_msk_loft` at `360px`,
+   - submit booking form -> observed `POST /api/bookings -> 201` (pass).
+
+### Observations (Non-blocking)
+
+- Periodic console warnings and third-party image 404s from external image sources were observed on some pages.
+- These did not affect booking/payment flows or route usability in the tested matrix.
