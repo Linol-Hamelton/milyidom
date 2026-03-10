@@ -8,18 +8,27 @@ export const ACCOUNTS = {
   admin: { email: 'admin@example.com', password: 'password123', role: 'ADMIN' },
 };
 
+// In-process token cache — one login per role per test worker run
+// Tokens are valid for the JWT expiry window (typically 15min+), safe to reuse
+const tokenCache = new Map<string, { accessToken: string; user: Record<string, unknown> }>();
+
 export async function loginViaApi(
   request: APIRequestContext,
   email: string,
   password: string,
 ): Promise<{ accessToken: string; user: Record<string, unknown> }> {
+  const cached = tokenCache.get(email);
+  if (cached) return cached;
+
   const res = await request.post(`${API_URL}/api/auth/login`, {
     data: { email, password },
   });
   if (!res.ok()) {
     throw new Error(`Login failed for ${email}: ${res.status()} ${await res.text()}`);
   }
-  return res.json();
+  const result = await res.json() as { accessToken: string; user: Record<string, unknown> };
+  tokenCache.set(email, result);
+  return result;
 }
 
 export async function setAuthInBrowser(

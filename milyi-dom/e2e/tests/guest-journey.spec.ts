@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, clearAuth, ACCOUNTS } from '../fixtures/auth';
+import { loginAs, clearAuth, loginViaApi, ACCOUNTS } from '../fixtures/auth';
 
 const API_URL = process.env.API_URL || 'https://api.milyidom.com';
 
@@ -121,10 +121,7 @@ test.describe('Guest Journey — Authenticated guest actions', () => {
   });
 
   test('guest API: can get own bookings', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.guest.email, password: ACCOUNTS.guest.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.guest.email, ACCOUNTS.guest.password);
 
     const res = await request.get(`${API_URL}/api/bookings`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -135,10 +132,7 @@ test.describe('Guest Journey — Authenticated guest actions', () => {
   });
 
   test('guest API: can add/remove favorites', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.guest.email, password: ACCOUNTS.guest.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.guest.email, ACCOUNTS.guest.password);
 
     const listingsRes = await request.get(`${API_URL}/api/listings?limit=1`);
     const listingsBody = await listingsRes.json();

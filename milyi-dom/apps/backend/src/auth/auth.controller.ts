@@ -42,16 +42,16 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
-  // 5 login attempts per minute per IP — brute-force protection
-  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  // 20 login attempts per minute per IP — brute-force protection (allows E2E test suites)
+  @Throttle({ global: { ttl: 60_000, limit: 20 } })
   @Audit(AuditAction.USER_LOGIN)
   @Post('login')
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
   }
 
-  // 5 refresh attempts per minute
-  @Throttle({ global: { ttl: 60_000, limit: 5 } })
+  // 20 refresh attempts per minute
+  @Throttle({ global: { ttl: 60_000, limit: 20 } })
   @Audit(AuditAction.TOKEN_REFRESH)
   @Post('refresh')
   refreshTokens(@Body('refreshToken') refreshToken: string) {

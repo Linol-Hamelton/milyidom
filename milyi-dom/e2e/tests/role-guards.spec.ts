@@ -98,10 +98,7 @@ test.describe('Role guards — any authenticated user can access shared routes',
 
 test.describe('API role guards — ADMIN-only endpoints', () => {
   test('GUEST cannot access GET /api/admin/users (403)', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.guest.email, password: ACCOUNTS.guest.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.guest.email, ACCOUNTS.guest.password);
 
     const res = await request.get(`${API_URL}/api/admin/users`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -110,10 +107,7 @@ test.describe('API role guards — ADMIN-only endpoints', () => {
   });
 
   test('HOST cannot access GET /api/admin/users (403)', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
     const res = await request.get(`${API_URL}/api/admin/users`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -122,10 +116,7 @@ test.describe('API role guards — ADMIN-only endpoints', () => {
   });
 
   test('ADMIN can access GET /api/admin/users (200)', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.admin.email, password: ACCOUNTS.admin.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.admin.email, ACCOUNTS.admin.password);
 
     const res = await request.get(`${API_URL}/api/admin/users`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -136,10 +127,7 @@ test.describe('API role guards — ADMIN-only endpoints', () => {
 
 test.describe('API role guards — HOST-only endpoints', () => {
   test('GUEST cannot access GET /api/bookings/host (403)', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.guest.email, password: ACCOUNTS.guest.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.guest.email, ACCOUNTS.guest.password);
 
     const res = await request.get(`${API_URL}/api/bookings/host`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -148,10 +136,7 @@ test.describe('API role guards — HOST-only endpoints', () => {
   });
 
   test('HOST can access GET /api/bookings/host (200)', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
     const res = await request.get(`${API_URL}/api/bookings/host`, {
       headers: { Authorization: `Bearer ${accessToken}` },

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { loginAs, ACCOUNTS } from '../fixtures/auth';
+import { loginAs, loginViaApi, ACCOUNTS } from '../fixtures/auth';
 
 const API_URL = process.env.API_URL || 'https://api.milyidom.com';
 
@@ -41,10 +41,7 @@ test.describe('Host Journey — Dashboard', () => {
 
 test.describe('Host Journey — Listings API', () => {
   test('host can get own listings', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
     const res = await request.get(`${API_URL}/api/listings/my`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -55,10 +52,7 @@ test.describe('Host Journey — Listings API', () => {
   });
 
   test('host can create listing (idempotency)', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
     const idempotencyKey = `pw-test-${Date.now()}`;
     const payload = {
@@ -91,10 +85,7 @@ test.describe('Host Journey — Listings API', () => {
   });
 
   test('host can upload image to S3', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
     // Create listing first
     const listingRes = await request.post(`${API_URL}/api/listings`, {
@@ -137,10 +128,7 @@ test.describe('Host Journey — Listings API', () => {
   });
 
   test('host can update listing', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
     // Get host listings
     const listingsRes = await request.get(`${API_URL}/api/listings/my`, {
@@ -164,17 +152,15 @@ test.describe('Host Journey — Listings API', () => {
 
   test('host cannot update another host listing (403)', async ({ request }) => {
     // Login as host2
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: 'host2@example.com', password: 'password123' },
-    });
-    if (!loginRes.ok()) return; // skip if host2 not available
-    const { accessToken } = await loginRes.json();
+    let accessToken: string;
+    try {
+      ({ accessToken } = await loginViaApi(request, 'host2@example.com', 'password123'));
+    } catch {
+      return; // skip if host2 not available
+    }
 
     // Get listings of host (not host2)
-    const hostLoginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
-    });
-    const { accessToken: hostToken } = await hostLoginRes.json();
+    const { accessToken: hostToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
     const listingsRes = await request.get(`${API_URL}/api/listings/my`, {
       headers: { Authorization: `Bearer ${hostToken}` },
     });
@@ -193,10 +179,7 @@ test.describe('Host Journey — Listings API', () => {
 
 test.describe('Host Journey — Bookings management', () => {
   test('host can get own bookings', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
     const res = await request.get(`${API_URL}/api/bookings/host`, {
       headers: { Authorization: `Bearer ${accessToken}` },
@@ -207,10 +190,7 @@ test.describe('Host Journey — Bookings management', () => {
   });
 
   test('host analytics endpoint returns data', async ({ request }) => {
-    const loginRes = await request.post(`${API_URL}/api/auth/login`, {
-      data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
-    });
-    const { accessToken } = await loginRes.json();
+    const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
     const res = await request.get(`${API_URL}/api/analytics/host`, {
       headers: { Authorization: `Bearer ${accessToken}` },

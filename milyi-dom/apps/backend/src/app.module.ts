@@ -40,12 +40,13 @@ import configuration from './config/configuration';
       isGlobal: true,
       load: [configuration],
     }),
-    // Rate limiting: 100 requests per 60 seconds per IP (global default)
+    // Rate limiting (global default: 300 req/60s per IP)
+    // Auth endpoints apply a stricter override via @Throttle() decorator
     ThrottlerModule.forRoot([
       {
         name: 'global',
         ttl: 60_000,
-        limit: 100,
+        limit: 300,
       },
     ]),
     PrismaModule,
