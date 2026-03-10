@@ -144,6 +144,23 @@ export class AiSearchService {
     }
   }
 
+  private detectContactInfo(text: string): string | null {
+    const patterns: Array<[RegExp, string]> = [
+      [/\b[\w.-]+@[\w.-]+\.[a-z]{2,}\b/i, 'email-адрес'],
+      [/(?:\+7|8)[\s\-]?\(?\d{3}\)?[\s\-]?\d{3}[\s\-]?\d{2}[\s\-]?\d{2}/,  'номер телефона'],
+      [/\b\d[\d\s\-]{8,}\d\b/, 'номер телефона'],
+      [/@[\w.]{3,}/, 'контакт в мессенджере'],
+      [/t\.me\/|telegram|whatsapp|viber|vk\.com|instagram|wa\.me/i, 'ссылка на мессенджер или соцсеть'],
+      [/https?:\/\/(?!milyidom\.com)\S+/i, 'внешняя ссылка'],
+      [/пишите|звоните|звони|пиши|связывайтесь вне|написать мне|написать на/i, 'призыв к внешней связи'],
+    ];
+    const combined = `${text}`;
+    for (const [pattern, label] of patterns) {
+      if (pattern.test(combined)) return label;
+    }
+    return null;
+  }
+
   async detectFraud(listing: {
     title: string;
     description: string;
@@ -151,6 +168,17 @@ export class AiSearchService {
     city: string;
     country: string;
   }): Promise<{ isFraud: boolean; reason: string }> {
+    // Fast deterministic check before calling AI
+    const contactViolation = this.detectContactInfo(
+      `${listing.title} ${listing.description}`,
+    );
+    if (contactViolation) {
+      return {
+        isFraud: true,
+        reason: `Объявление содержит ${contactViolation}. Общение и оплата должны происходить строго через платформу.`,
+      };
+    }
+
     if (!this.client) return { isFraud: false, reason: '' };
 
     try {
@@ -166,7 +194,7 @@ export class AiSearchService {
             {
               role: 'system',
               content:
-                'You are a fraud detection system for a rental platform. Analyze the listing and respond ONLY with JSON: {"isFraud": boolean, "reason": "string"}. Flag fraud when: unrealistic pricing, copy-pasted generic text, suspicious claims, clearly fake location. Reason must be in Russian when isFraud is true, empty string otherwise.',
+                'You are a fraud detection system for a rental platform. Analyze the listing and respond ONLY with JSON: {"isFraud": boolean, "reason": "string"}. Flag fraud when: (1) unrealistic pricing — price too low or suspiciously high; (2) copy-pasted generic text without real details; (3) suspicious claims — money transfer requests, guarantees, Wire Transfer, Western Union, advance payment; (4) clearly fake location; (5) contact information embedded in title or description — phone numbers, email addresses, Telegram/WhatsApp/Viber handles, social media links, website URLs, or any instruction to contact outside the platform. All communication and payment must stay within the app. Reason must be in Russian when isFraud is true, empty string otherwise.',
             },
             {
               role: 'user',
