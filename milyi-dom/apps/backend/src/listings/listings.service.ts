@@ -623,17 +623,14 @@ export class ListingsService {
     const imageRecord = await this.prisma.propertyImage.create({
       data: {
         listingId,
-        url: key,   // store key; public URL derived at read time
+        url,   // store full public URL (S3 CDN or local base URL)
         description: options.description,
         position,
         isPrimary: options.isPrimary ?? false,
       },
     });
 
-    return {
-      ...imageRecord,
-      url,   // return the full public URL directly
-    };
+    return imageRecord;
   }
 
   async getListingStats(listingId: string) {
