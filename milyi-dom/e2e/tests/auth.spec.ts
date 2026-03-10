@@ -97,13 +97,13 @@ test.describe('Auth — token lifecycle', () => {
     expect(body.accessToken).toBeTruthy();
   });
 
-  test('authenticated user can access /api/auth/me', async ({ request }) => {
+  test('authenticated user can access /api/users/me', async ({ request }) => {
     const loginRes = await request.post(`${API_URL}/api/auth/login`, {
       data: { email: ACCOUNTS.host.email, password: ACCOUNTS.host.password },
     });
     const { accessToken } = await loginRes.json();
 
-    const meRes = await request.get(`${API_URL}/api/auth/me`, {
+    const meRes = await request.get(`${API_URL}/api/users/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     expect(meRes.status()).toBe(200);
@@ -112,7 +112,7 @@ test.describe('Auth — token lifecycle', () => {
   });
 
   test('invalid token returns 401', async ({ request }) => {
-    const res = await request.get(`${API_URL}/api/auth/me`, {
+    const res = await request.get(`${API_URL}/api/users/me`, {
       headers: { Authorization: 'Bearer invalid.token.here' },
     });
     expect(res.status()).toBe(401);
