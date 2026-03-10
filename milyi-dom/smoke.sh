@@ -91,14 +91,14 @@ else
 fi
 
 if [ -n "$ACCESS_TOKEN" ]; then
-  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/auth/me" \
+  STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/users/me" \
     -H "Authorization: Bearer $ACCESS_TOKEN")
-  check "GET /api/auth/me (authenticated)" "200" "$STATUS"
+  check "GET /api/users/me (authenticated)" "200" "$STATUS"
 fi
 
 # Auth guard check
-STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/auth/me")
-check "GET /api/auth/me (no token → 401)" "401" "$STATUS"
+STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/users/me")
+check "GET /api/users/me (no token → 401)" "401" "$STATUS"
 
 STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$API_URL/api/admin/users")
 check "GET /api/admin/users (no token → 401)" "401" "$STATUS"
