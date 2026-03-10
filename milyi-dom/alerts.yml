@@ -1,0 +1,91 @@
+groups:
+  - name: milyi_dom_api
+    interval: 30s
+    rules:
+      # ── API 5xx spike ──────────────────────────────────────────────────────
+      - alert: ApiHighErrorRate
+        expr: |
+          (
+            sum(rate(milyi_dom_http_request_duration_seconds_count{status_code=~"5.."}[5m]))
+            /
+            sum(rate(milyi_dom_http_request_duration_seconds_count[5m]))
+          ) > 0.01
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "API 5xx error rate > 1%"
+          description: "5xx rate is {{ $value | humanizePercentage }} over last 5 min. Investigate backend logs immediately."
+
+      # ── p95 latency ────────────────────────────────────────────────────────
+      - alert: ApiHighLatency
+        expr: |
+          histogram_quantile(0.95,
+            sum by (le) (rate(milyi_dom_http_request_duration_seconds_bucket[5m]))
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API p95 latency > 2s"
+          description: "p95 response time is {{ $value | humanizeDuration }}. Check slow queries or AI service timeouts."
+
+      # ── Backend process down ───────────────────────────────────────────────
+      - alert: BackendDown
+        expr: up{job="milyi-dom-backend"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend is DOWN"
+          description: "Prometheus cannot scrape the backend. Container may have crashed."
+
+  - name: milyi_dom_queues
+    interval: 30s
+    rules:
+      # ── Bull queue backlog ─────────────────────────────────────────────────
+      - alert: QueueBacklogHigh
+        expr: milyi_dom_bull_queue_depth > 100
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Bull queue backlog > 100 jobs"
+          description: "Queue '{{ $labels.queue }}' has {{ $value }} pending jobs. Worker may be stuck."
+
+      # ── Fraud detection spike ──────────────────────────────────────────────
+      - alert: FraudSpikeDetected
+        expr: rate(milyi_dom_fraud_flagged_total[10m]) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fraud detection spike"
+          description: "More than 1 listing/min flagged as fraud in last 10 min. Possible coordinated attack."
+
+  - name: milyi_dom_infrastructure
+    interval: 60s
+    rules:
+      # ── Process memory ─────────────────────────────────────────────────────
+      - alert: HighMemoryUsage
+        expr: milyi_dom_process_resident_memory_bytes > 800000000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Backend memory > 800 MB"
+          description: "Process RSS is {{ $value | humanize1024 }}B. Risk of OOM on 1GB VPS."
+
+      # ── WebSocket connections drop ─────────────────────────────────────────
+      - alert: WebSocketConnectionsDrop
+        expr: |
+          (
+            milyi_dom_websocket_connections offset 10m
+            - milyi_dom_websocket_connections
+          ) > 50
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "WebSocket connections dropped by {{ $value }}"
+          description: "Possible socket.io disconnect storm or proxy reset."

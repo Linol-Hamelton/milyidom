@@ -47,10 +47,24 @@ export class MetricsService implements OnModuleInit {
     registers: [this.registry],
   });
 
+  readonly fraudFlagged = new Counter({
+    name: 'milyi_dom_fraud_flagged_total',
+    help: 'Listings flagged as fraud by detection system',
+    labelNames: ['method'] as const, // 'regex' | 'ai'
+    registers: [this.registry],
+  });
+
   // ── Gauges ──────────────────────────────────────────────────────────────────
   readonly activeWebSocketConnections = new Gauge({
     name: 'milyi_dom_websocket_connections',
     help: 'Current active WebSocket connections',
+    registers: [this.registry],
+  });
+
+  readonly bullQueueDepth = new Gauge({
+    name: 'milyi_dom_bull_queue_depth',
+    help: 'Number of waiting jobs in Bull queues',
+    labelNames: ['queue'] as const,
     registers: [this.registry],
   });
 

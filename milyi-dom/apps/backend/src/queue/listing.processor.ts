@@ -4,6 +4,7 @@ import type { Job } from 'bull';
 import { PrismaService } from '../prisma/prisma.service';
 import { AiSearchService } from '../ai-search/ai-search.service';
 import { AuditService } from '../audit/audit.service';
+import { MetricsService } from '../metrics/metrics.service';
 import { LISTING_QUEUE, LISTING_JOB } from './queue.constants';
 import { FraudCheckJobData } from './listing-queue.service';
 
@@ -15,6 +16,7 @@ export class ListingProcessor {
     private readonly prisma: PrismaService,
     private readonly aiSearchService: AiSearchService,
     private readonly auditService: AuditService,
+    private readonly metricsService: MetricsService,
   ) {}
 
   @Process(LISTING_JOB.FRAUD_CHECK)
@@ -44,6 +46,8 @@ export class ListingProcessor {
           metadata: { automated: true, fraudReason: result.reason },
           success: true,
         });
+
+        this.metricsService.fraudFlagged.inc({ method: 'ai' });
 
         this.logger.warn(
           `Listing ${listingId} flagged as fraud and set to UNLISTED. Reason: ${result.reason}`,

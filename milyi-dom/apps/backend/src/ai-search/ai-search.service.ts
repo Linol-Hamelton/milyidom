@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import OpenAI from 'openai';
+import { MetricsService } from '../metrics/metrics.service';
 
 export interface AiSearchQuery {
   query: string;
@@ -53,7 +54,10 @@ export class AiSearchService {
   private readonly logger = new Logger(AiSearchService.name);
   private readonly client: OpenAI | null;
 
-  constructor(private readonly config: ConfigService) {
+  constructor(
+    private readonly config: ConfigService,
+    private readonly metricsService: MetricsService,
+  ) {
     const apiKey = config.get<string>('deepseek.apiKey');
     if (apiKey) {
       this.client = new OpenAI({ apiKey, baseURL: 'https://api.deepseek.com' });
@@ -173,6 +177,7 @@ export class AiSearchService {
       `${listing.title} ${listing.description}`,
     );
     if (contactViolation) {
+      this.metricsService.fraudFlagged.inc({ method: 'regex' });
       return {
         isFraud: true,
         reason: `Объявление содержит ${contactViolation}. Общение и оплата должны происходить строго через платформу.`,

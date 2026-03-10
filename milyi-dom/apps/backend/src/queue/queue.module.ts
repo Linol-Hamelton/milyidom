@@ -8,6 +8,7 @@ import { EmailModule } from '../email/email.module';
 import { NotificationsModule } from '../notifications/notifications.module';
 import { AiSearchModule } from '../ai-search/ai-search.module';
 import { AuditModule } from '../audit/audit.module';
+import { MetricsModule } from '../metrics/metrics.module';
 import { EmailProcessor } from './email.processor';
 import { EmailQueueService } from './email-queue.service';
 import { NotificationProcessor } from './notification.processor';
@@ -52,6 +53,7 @@ import { EMAIL_QUEUE, NOTIFICATION_QUEUE, PAYOUT_QUEUE, LISTING_QUEUE } from './
     NotificationsModule,
     AiSearchModule,
     AuditModule,
+    MetricsModule,
   ],
   providers: [
     EmailProcessor,
