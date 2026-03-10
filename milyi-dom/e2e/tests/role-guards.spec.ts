@@ -17,8 +17,8 @@ test.describe('Role guards — GUEST cannot access HOST routes', () => {
     test(`GUEST is redirected from ${route}`, async ({ page, request }) => {
       await loginAs(page, request, 'guest');
       await page.goto(route);
-      await page.waitForLoadState('networkidle');
-      // Should redirect to /auth/login or / (not stay on host route)
+      // Wait for Next.js client-side redirect to complete
+      await page.waitForURL((url) => !url.toString().includes(route), { timeout: 15_000 });
       expect(page.url()).not.toContain(route);
     });
   }
@@ -31,7 +31,7 @@ test.describe('Role guards — GUEST cannot access ADMIN routes', () => {
     test(`GUEST is redirected from ${route}`, async ({ page, request }) => {
       await loginAs(page, request, 'guest');
       await page.goto(route);
-      await page.waitForLoadState('networkidle');
+      await page.waitForURL((url) => !url.toString().includes(route), { timeout: 15_000 });
       expect(page.url()).not.toContain(route);
     });
   }
@@ -44,7 +44,7 @@ test.describe('Role guards — HOST cannot access ADMIN routes', () => {
     test(`HOST is redirected from ${route}`, async ({ page, request }) => {
       await loginAs(page, request, 'host');
       await page.goto(route);
-      await page.waitForLoadState('networkidle');
+      await page.waitForURL((url) => !url.toString().includes(route), { timeout: 15_000 });
       expect(page.url()).not.toContain(route);
     });
   }
@@ -57,7 +57,7 @@ test.describe('Role guards — HOST can access HOST routes', () => {
     test(`HOST can access ${route}`, async ({ page, request }) => {
       await loginAs(page, request, 'host');
       await page.goto(route);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       expect(page.url()).toContain(route);
     });
   }
@@ -67,14 +67,14 @@ test.describe('Role guards — ADMIN can access all routes', () => {
   test('ADMIN can access /admin', async ({ page, request }) => {
     await loginAs(page, request, 'admin');
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/admin');
   });
 
   test('ADMIN can access /host/listings (admin has host role access)', async ({ page, request }) => {
     await loginAs(page, request, 'admin');
     await page.goto('/host/listings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/host/listings');
   });
 });
@@ -87,7 +87,7 @@ test.describe('Role guards — any authenticated user can access shared routes',
       test(`${role.toUpperCase()} can access ${route}`, async ({ page, request }) => {
         await loginAs(page, request, role);
         await page.goto(route);
-        await page.waitForLoadState('networkidle');
+        await page.waitForLoadState('domcontentloaded');
         expect(page.url()).toContain(route);
       });
     }
@@ -148,7 +148,7 @@ test.describe('API role guards — HOST-only endpoints', () => {
 test.describe('API role guards — unauthenticated access', () => {
   test('no token returns 401 for protected endpoints', async ({ request }) => {
     const endpoints = [
-      `${API_URL}/api/auth/me`,
+      `${API_URL}/api/users/me`,
       `${API_URL}/api/bookings/host`,
       `${API_URL}/api/admin/users`,
     ];

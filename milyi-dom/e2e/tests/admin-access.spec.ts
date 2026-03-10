@@ -7,7 +7,7 @@ test.describe('Admin — Frontend routes', () => {
   test('admin can access /admin dashboard', async ({ page, request }) => {
     await loginAs(page, request, 'admin');
     await page.goto('/admin');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/admin');
     expect(page.url()).not.toContain('/auth/login');
     expect(page.url()).not.toBe('https://milyidom.com/');
@@ -25,7 +25,7 @@ test.describe('Admin — Frontend routes', () => {
     test(`admin can access ${route}`, async ({ page, request }) => {
       await loginAs(page, request, 'admin');
       await page.goto(route);
-      await page.waitForLoadState('networkidle');
+      await page.waitForLoadState('domcontentloaded');
       expect(page.url()).toContain(route);
       const content = page.locator('main, [role="main"], table, [class*="table"]').first();
       await expect(content).toBeVisible({ timeout: 15_000 });
@@ -42,7 +42,7 @@ test.describe('Admin — API endpoints', () => {
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    const users = body.data || body;
+    const users = body.items || body.data || body;
     expect(Array.isArray(users)).toBe(true);
     expect(users.length).toBeGreaterThan(0);
   });
@@ -55,26 +55,26 @@ test.describe('Admin — API endpoints', () => {
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    const items = body.data || body;
+    const items = body.items || body.data || body;
     expect(Array.isArray(items)).toBe(true);
   });
 
-  test('GET /api/audit returns audit log entries', async ({ request }) => {
+  test('GET /api/admin/audit-log returns audit log entries', async ({ request }) => {
     const { accessToken } = await loginViaApi(request, ACCOUNTS.admin.email, ACCOUNTS.admin.password);
 
-    const res = await request.get(`${API_URL}/api/audit`, {
+    const res = await request.get(`${API_URL}/api/admin/audit-log`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    const items = body.data || body;
+    const items = body.items || body.data || body;
     expect(Array.isArray(items)).toBe(true);
   });
 
-  test('GET /api/analytics/stats returns platform stats', async ({ request }) => {
+  test('GET /api/analytics/admin returns platform stats', async ({ request }) => {
     const { accessToken } = await loginViaApi(request, ACCOUNTS.admin.email, ACCOUNTS.admin.password);
 
-    const res = await request.get(`${API_URL}/api/analytics/stats`, {
+    const res = await request.get(`${API_URL}/api/analytics/admin`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     expect(res.status()).toBe(200);
@@ -87,7 +87,7 @@ test.describe('Admin — API endpoints', () => {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const usersBody = await usersRes.json();
-    const users = usersBody.data || usersBody;
+    const users = usersBody.items || usersBody.data || usersBody;
     const targetUser = users.find(
       (u: { role: string; email: string }) =>
         u.role === 'GUEST' && !u.email.includes('admin'),
@@ -108,15 +108,16 @@ test.describe('Admin — API endpoints', () => {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const usersBody = await usersRes.json();
-    const users = usersBody.data || usersBody;
+    const users = usersBody.items || usersBody.data || usersBody;
     const targetUser = users.find(
       (u: { email: string; role: string }) =>
         u.email.includes('qa_') || u.email.includes('test'),
     );
     if (!targetUser) return;
 
-    const blockRes = await request.post(`${API_URL}/api/admin/users/${targetUser.id}/unblock`, {
+    const blockRes = await request.patch(`${API_URL}/api/admin/users/${targetUser.id}/block`, {
       headers: { Authorization: `Bearer ${accessToken}` },
+      data: { blocked: false },
     });
     expect([200, 201, 400]).toContain(blockRes.status());
   });

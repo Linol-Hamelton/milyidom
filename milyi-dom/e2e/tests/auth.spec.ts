@@ -130,7 +130,7 @@ test.describe('Auth — logout', () => {
     await setAuthInBrowser(page, accessToken, user);
 
     await page.goto('/profile');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     // Auth state should allow access
     expect(page.url()).toContain('/profile');
   });

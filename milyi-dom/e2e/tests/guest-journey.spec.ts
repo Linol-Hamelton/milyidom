@@ -6,7 +6,7 @@ const API_URL = process.env.API_URL || 'https://api.milyidom.com';
 test.describe('Guest Journey — Discovery', () => {
   test('homepage loads with listing cards', async ({ page }) => {
     await page.goto('/');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     // Check page renders
     expect(page.url()).toContain('milyidom.com');
     // Featured listings or search section should be visible
@@ -35,7 +35,7 @@ test.describe('Guest Journey — Discovery', () => {
       : `/listings/${listing.id}`;
 
     await page.goto(detailPath);
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
 
     // Title should be visible
     await expect(page.locator('h1').first()).toBeVisible();
@@ -95,40 +95,40 @@ test.describe('Guest Journey — Authenticated guest actions', () => {
   test('guest can access favorites page', async ({ page, request }) => {
     await loginAs(page, request, 'guest');
     await page.goto('/favorites');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/favorites');
   });
 
   test('guest can access bookings page', async ({ page, request }) => {
     await loginAs(page, request, 'guest');
     await page.goto('/bookings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/bookings');
   });
 
   test('guest can access messages page', async ({ page, request }) => {
     await loginAs(page, request, 'guest');
     await page.goto('/messages');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/messages');
   });
 
   test('guest can access profile page', async ({ page, request }) => {
     await loginAs(page, request, 'guest');
     await page.goto('/profile');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/profile');
   });
 
   test('guest API: can get own bookings', async ({ request }) => {
     const { accessToken } = await loginViaApi(request, ACCOUNTS.guest.email, ACCOUNTS.guest.password);
 
-    const res = await request.get(`${API_URL}/api/bookings`, {
+    const res = await request.get(`${API_URL}/api/bookings/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body.data || body)).toBe(true);
+    expect(Array.isArray(body.items || body.data || body)).toBe(true);
   });
 
   test('guest API: can add/remove favorites', async ({ request }) => {

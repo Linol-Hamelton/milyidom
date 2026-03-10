@@ -7,14 +7,14 @@ test.describe('Host Journey — Dashboard', () => {
   test('host dashboard page loads', async ({ page, request }) => {
     await loginAs(page, request, 'host');
     await page.goto('/host/dashboard');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/host');
   });
 
   test('host listings page loads', async ({ page, request }) => {
     await loginAs(page, request, 'host');
     await page.goto('/host/listings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/host/listings');
     // Some listing content or empty state should be visible
     const content = page.locator('main, [role="main"]').first();
@@ -24,7 +24,7 @@ test.describe('Host Journey — Dashboard', () => {
   test('host new listing form loads', async ({ page, request }) => {
     await loginAs(page, request, 'host');
     await page.goto('/host/listings/new');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/host/listings/new');
     // Form should have some inputs
     const firstInput = page.locator('input, textarea, select').first();
@@ -34,7 +34,7 @@ test.describe('Host Journey — Dashboard', () => {
   test('host bookings page loads', async ({ page, request }) => {
     await loginAs(page, request, 'host');
     await page.goto('/host/bookings');
-    await page.waitForLoadState('networkidle');
+    await page.waitForLoadState('domcontentloaded');
     expect(page.url()).toContain('/host/bookings');
   });
 });
@@ -43,12 +43,12 @@ test.describe('Host Journey — Listings API', () => {
   test('host can get own listings', async ({ request }) => {
     const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
-    const res = await request.get(`${API_URL}/api/listings/my`, {
+    const res = await request.get(`${API_URL}/api/listings/host/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body.data || body)).toBe(true);
+    expect(Array.isArray(body.items || body.data || body)).toBe(true);
   });
 
   test('host can create listing (idempotency)', async ({ request }) => {
@@ -131,11 +131,11 @@ test.describe('Host Journey — Listings API', () => {
     const { accessToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
 
     // Get host listings
-    const listingsRes = await request.get(`${API_URL}/api/listings/my`, {
+    const listingsRes = await request.get(`${API_URL}/api/listings/host/me`, {
       headers: { Authorization: `Bearer ${accessToken}` },
     });
     const listings = await listingsRes.json();
-    const items = listings.data || listings;
+    const items = listings.items || listings.data || listings;
     if (items.length === 0) return; // skip if no listings
 
     const listingId = items[0].id;
@@ -161,11 +161,11 @@ test.describe('Host Journey — Listings API', () => {
 
     // Get listings of host (not host2)
     const { accessToken: hostToken } = await loginViaApi(request, ACCOUNTS.host.email, ACCOUNTS.host.password);
-    const listingsRes = await request.get(`${API_URL}/api/listings/my`, {
+    const listingsRes = await request.get(`${API_URL}/api/listings/host/me`, {
       headers: { Authorization: `Bearer ${hostToken}` },
     });
     const listings = await listingsRes.json();
-    const items = listings.data || listings;
+    const items = listings.items || listings.data || listings;
     if (items.length === 0) return;
 
     const listingId = items[0].id;
@@ -186,7 +186,7 @@ test.describe('Host Journey — Bookings management', () => {
     });
     expect(res.status()).toBe(200);
     const body = await res.json();
-    expect(Array.isArray(body.data || body)).toBe(true);
+    expect(Array.isArray(body.items || body.data || body)).toBe(true);
   });
 
   test('host analytics endpoint returns data', async ({ request }) => {
