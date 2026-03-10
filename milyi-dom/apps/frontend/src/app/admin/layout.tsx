@@ -9,6 +9,7 @@ import {
   ChartBarIcon,
   ShieldCheckIcon,
   ChatBubbleLeftRightIcon,
+  ExclamationTriangleIcon,
 } from '@heroicons/react/24/outline';
 import { RequireAuth } from '../../components/ui/require-auth';
 
@@ -18,6 +19,7 @@ const navItems = [
   { href: '/admin/listings', label: 'Объявления', icon: ClipboardDocumentListIcon, exact: false },
   { href: '/admin/analytics', label: 'Аналитика', icon: ChartBarIcon, exact: false },
   { href: '/admin/reviews', label: 'Отзывы', icon: ChatBubbleLeftRightIcon, exact: false },
+  { href: '/admin/disputes', label: 'Споры', icon: ExclamationTriangleIcon, exact: false },
   { href: '/admin/audit-log', label: 'Журнал действий', icon: ShieldCheckIcon, exact: false },
 ];
 

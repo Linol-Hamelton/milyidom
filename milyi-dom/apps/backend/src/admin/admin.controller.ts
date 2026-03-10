@@ -21,12 +21,18 @@ import { GetAuditLogDto } from './dto/get-audit-log.dto';
 import { ChangeRoleDto } from './dto/change-role.dto';
 import { BlockUserDto } from './dto/block-user.dto';
 import { ModerateListingDto } from './dto/moderate-listing.dto';
+import { DisputesService } from '../disputes/disputes.service';
+import { ResolveDisputeDto } from '../disputes/dto/resolve-dispute.dto';
+import { DisputeStatus } from '@prisma/client';
 
 @Controller('admin')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(Role.ADMIN)
 export class AdminController {
-  constructor(private readonly adminService: AdminService) {}
+  constructor(
+    private readonly adminService: AdminService,
+    private readonly disputesService: DisputesService,
+  ) {}
 
   @Get('users')
   getUsers(@Query() dto: GetAdminUsersDto) {
@@ -94,8 +100,17 @@ export class AdminController {
   }
 
   @Get('disputes')
-  getDisputes() {
-    // Placeholder — disputes system planned for future sprint
-    return { items: [], meta: { page: 1, limit: 20, total: 0 } };
+  getDisputes(
+    @Query('page') page = '1',
+    @Query('limit') limit = '20',
+    @Query('status') status?: DisputeStatus,
+  ) {
+    return this.disputesService.findAll(Number(page), Number(limit), status);
+  }
+
+  @Patch('disputes/:id')
+  @HttpCode(200)
+  resolveDispute(@Param('id') id: string, @Body() dto: ResolveDisputeDto) {
+    return this.disputesService.resolve(id, dto);
   }
 }

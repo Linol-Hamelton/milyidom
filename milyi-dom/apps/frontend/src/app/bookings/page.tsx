@@ -8,6 +8,7 @@ import { RequireAuth } from '../../components/ui/require-auth';
 import { Button } from '../../components/ui/button';
 import { Skeleton } from '../../components/ui/skeleton';
 import { fetchGuestBookings, cancelBooking } from '../../services/bookings';
+import { createDispute } from '../../services/disputes';
 import type { Booking } from '../../types/api';
 import { parseError } from '../../lib/api-client';
 import { decimalToNumber } from '../../lib/format';
@@ -43,6 +44,10 @@ export default function BookingsPage() {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [activeFilter, setActiveFilter] = useState<'all' | Booking['status']>('all');
+  const [disputeBookingId, setDisputeBookingId] = useState<string | null>(null);
+  const [disputeSubject, setDisputeSubject] = useState('');
+  const [disputeDescription, setDisputeDescription] = useState('');
+  const [disputeSaving, setDisputeSaving] = useState(false);
   const router = useRouter();
   const limit = 6;
 
@@ -87,6 +92,26 @@ export default function BookingsPage() {
     : bookings.filter(booking => booking.status === activeFilter);
 
   const totalPages = Math.max(Math.ceil(total / limit), 1);
+
+  const handleOpenDispute = async () => {
+    if (!disputeBookingId) return;
+    if (!disputeSubject.trim() || !disputeDescription.trim()) {
+      toast.error('Заполните тему и описание спора');
+      return;
+    }
+    setDisputeSaving(true);
+    try {
+      await createDispute({ bookingId: disputeBookingId, subject: disputeSubject, description: disputeDescription });
+      toast.success('Спор открыт. Администратор рассмотрит его в ближайшее время.');
+      setDisputeBookingId(null);
+      setDisputeSubject('');
+      setDisputeDescription('');
+    } catch (err) {
+      toast.error(parseError(err).message);
+    } finally {
+      setDisputeSaving(false);
+    }
+  };
 
   const getDaysUntilTrip = (checkIn: string) => {
     const today = new Date();
@@ -222,26 +247,34 @@ export default function BookingsPage() {
                         </div>
                       </div>
 
-                      {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
-                        <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
+                      <div className="flex gap-2 flex-wrap">
+                        {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleCancel(booking.id)}
-                            className="flex-1"
                           >
                             Отменить
                           </Button>
-                          <Button 
-                            variant="outline" 
+                        )}
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => router.push(`/bookings/${booking.id}`)}
+                        >
+                          Посмотреть
+                        </Button>
+                        {(booking.status === 'CONFIRMED' || booking.status === 'COMPLETED') && (
+                          <Button
+                            variant="outline"
                             size="sm"
-                            onClick={() => router.push(`/bookings/${booking.id}`)}
-                            className="flex-1"
+                            onClick={() => { setDisputeBookingId(booking.id); setDisputeSubject(''); setDisputeDescription(''); }}
+                            className="text-red-600 border-red-300 hover:bg-red-50"
                           >
-                            Посмотреть
+                            Открыть спор
                           </Button>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   );
                 })}
@@ -277,6 +310,51 @@ export default function BookingsPage() {
           )}
         </div>
       </div>
+
+      {/* Open dispute modal */}
+      {disputeBookingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-xl">
+            <h2 className="mb-1 text-lg font-semibold text-gray-900">Открыть спор</h2>
+            <p className="mb-4 text-sm text-gray-500">
+              Опишите проблему. Администратор рассмотрит её в ближайшее время.
+            </p>
+            <div className="mb-4">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Тема</label>
+              <input
+                type="text"
+                value={disputeSubject}
+                onChange={(e) => setDisputeSubject(e.target.value)}
+                placeholder="Краткое описание проблемы"
+                maxLength={200}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
+              />
+            </div>
+            <div className="mb-6">
+              <label className="mb-1 block text-sm font-medium text-gray-700">Описание</label>
+              <textarea
+                value={disputeDescription}
+                onChange={(e) => setDisputeDescription(e.target.value)}
+                placeholder="Подробно опишите ситуацию (минимум 20 символов)"
+                rows={4}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 resize-none"
+              />
+            </div>
+            <div className="flex gap-3 justify-end">
+              <Button variant="outline" onClick={() => setDisputeBookingId(null)} disabled={disputeSaving}>
+                Отмена
+              </Button>
+              <Button
+                onClick={handleOpenDispute}
+                disabled={disputeSaving}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                {disputeSaving ? 'Отправка...' : 'Открыть спор'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </RequireAuth>
   );
 }

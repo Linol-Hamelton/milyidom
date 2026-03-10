@@ -31,6 +31,7 @@ import { StorageModule } from './storage/storage.module';
 import { SuperhostModule } from './superhost/superhost.module';
 import { SavedSearchesModule } from './saved-searches/saved-searches.module';
 import { NewsletterModule } from './newsletter/newsletter.module';
+import { DisputesModule } from './disputes/disputes.module';
 import configuration from './config/configuration';
 
 @Module({
@@ -75,6 +76,7 @@ import configuration from './config/configuration';
     SuperhostModule,
     SavedSearchesModule,
     NewsletterModule,
+    DisputesModule,
   ],
   controllers: [AppController],
   providers: [
