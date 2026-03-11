@@ -17,7 +17,8 @@ export class EmailService {
     const pass = config.get<string>('email.pass');
 
     this.frontendUrl = config.get<string>('frontend.url', 'http://localhost:3000');
-    this.fromAddress = `Милый Дом <${user ?? 'noreply@milyidom.com'}>`;
+    const fromEmail = config.get<string>('email.from') ?? 'noreply@milyidom.com';
+    this.fromAddress = `Милый Дом <${fromEmail}>`;
 
     if (host && user && pass) {
       this.transporter = nodemailer.createTransport({
