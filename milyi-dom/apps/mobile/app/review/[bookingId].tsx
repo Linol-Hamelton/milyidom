@@ -39,7 +39,7 @@ function StarPicker({ value, onChange, label }: { value: number; onChange: (v: n
             <Ionicons
               name={star <= value ? 'star' : 'star-outline'}
               size={28}
-              color={star <= value ? Colors.amber[400] : Colors.slate[300]}
+              color={star <= value ? Colors.amber[400] : Colors.slate[400]}
             />
           </TouchableOpacity>
         ))}
@@ -104,7 +104,7 @@ export default function ReviewFormScreen() {
               <Ionicons
                 name={star <= overallRating ? 'star' : 'star-outline'}
                 size={40}
-                color={star <= overallRating ? Colors.amber[400] : Colors.slate[300]}
+                color={star <= overallRating ? Colors.amber[400] : Colors.slate[400]}
               />
             </TouchableOpacity>
           ))}
@@ -169,7 +169,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: Colors.slate[800],
+    color: Colors.slate[700],
     marginTop: 20,
     marginBottom: 10,
   },
@@ -202,7 +202,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     padding: 14,
     fontSize: 14,
-    color: Colors.slate[800],
+    color: Colors.slate[700],
     minHeight: 120,
     borderWidth: 1,
     borderColor: Colors.slate[200],

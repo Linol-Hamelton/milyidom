@@ -43,10 +43,10 @@ export function ListingCard({ item }: Props) {
           <Text style={styles.title} numberOfLines={1}>
             {item.title}
           </Text>
-          {item.rating > 0 && (
+          {(item.rating ?? 0) > 0 && (
             <View style={styles.ratingRow}>
               <Ionicons name="star" size={12} color="#F59E0B" />
-              <Text style={styles.rating}>{item.rating.toFixed(1)}</Text>
+              <Text style={styles.rating}>{(item.rating ?? 0).toFixed(1)}</Text>
             </View>
           )}
         </View>

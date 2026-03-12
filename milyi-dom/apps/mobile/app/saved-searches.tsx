@@ -115,7 +115,7 @@ export default function SavedSearchesScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="bookmark-outline" size={64} color={Colors.slate[300]} />
+              <Ionicons name="bookmark-outline" size={64} color={Colors.slate[400]} />
               <Text style={styles.emptyTitle}>Нет сохранённых поисков</Text>
               <Text style={styles.emptySubtitle}>
                 Сохраняйте фильтры поиска, чтобы быстро к ним возвращаться

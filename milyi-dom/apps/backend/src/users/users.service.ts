@@ -444,6 +444,14 @@ export class UsersService {
     });
   }
 
+  async clearPushToken(userId: string) {
+    return this.prisma.user.update({
+      where: { id: userId },
+      data: { pushToken: null },
+      select: { id: true },
+    });
+  }
+
   async becomeHost(userId: string) {
     const user = await this.prisma.user.findUnique({
       where: { id: userId },

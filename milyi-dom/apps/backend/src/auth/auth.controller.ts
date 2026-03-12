@@ -158,6 +158,29 @@ export class AuthController {
     return this.buildOAuthRedirect(req.user as AuthResult);
   }
 
+  /**
+   * Mobile OAuth: exchange a Google id_token (from expo-auth-session PKCE) for JWT tokens.
+   * The mobile app exchanges the authorization code for tokens at Google's token endpoint,
+   * then sends the id_token here. This endpoint verifies it and returns app JWT tokens.
+   */
+  @Post('google/mobile')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async googleMobile(@Body('idToken') idToken: string) {
+    return this.authService.loginWithGoogleIdToken(idToken);
+  }
+
+  /**
+   * Mobile OAuth: exchange a VK access_token + user_id for JWT tokens.
+   */
+  @Post('vk/mobile')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  async vkMobile(
+    @Body('accessToken') accessToken: string,
+    @Body('userId') userId: string,
+  ) {
+    return this.authService.loginWithVkToken(accessToken, userId);
+  }
+
   // ── OAuth: VK ────────────────────────────────────────────────────────────────
 
   @Get('vk')

@@ -154,7 +154,7 @@ export default function BookingsScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="calendar-outline" size={48} color={Colors.slate[300]} />
+              <Ionicons name="calendar-outline" size={48} color={Colors.slate[400]} />
               <Text style={styles.emptyText}>У вас пока нет бронирований</Text>
               <TouchableOpacity
                 style={styles.exploreBtn}

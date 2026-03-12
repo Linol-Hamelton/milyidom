@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   StyleSheet, Text, View, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
@@ -6,15 +6,46 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as Google from 'expo-auth-session/providers/google';
+import * as WebBrowser from 'expo-web-browser';
 import { useAuthStore } from '@/stores/auth.store';
+import { apiClient } from '@/api/client';
 import { Colors } from '@/constants/colors';
 
+WebBrowser.maybeCompleteAuthSession();
+
+const GOOGLE_WEB_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '';
+const GOOGLE_IOS_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '';
+const GOOGLE_ANDROID_CLIENT_ID = process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? '';
+
 export default function LoginScreen() {
-  const { login } = useAuthStore();
+  const { login, loginWithToken } = useAuthStore();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPass, setShowPass] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState(false);
+
+  const [request, response, promptGoogleAsync] = Google.useAuthRequest({
+    webClientId: GOOGLE_WEB_CLIENT_ID || undefined,
+    iosClientId: GOOGLE_IOS_CLIENT_ID || undefined,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID || undefined,
+  });
+
+  useEffect(() => {
+    if (response?.type === 'success') {
+      const idToken = response.authentication?.idToken;
+      if (idToken) {
+        setOauthLoading(true);
+        apiClient
+          .post<{ accessToken: string }>('/auth/google/mobile', { idToken })
+          .then(({ data }) => loginWithToken(data.accessToken))
+          .then(() => router.replace('/(tabs)'))
+          .catch(() => Alert.alert('Ошибка', 'Не удалось войти через Google'))
+          .finally(() => setOauthLoading(false));
+      }
+    }
+  }, [response, loginWithToken]);
 
   const handleLogin = async () => {
     const trimmedEmail = email.trim().toLowerCase();
@@ -61,7 +92,7 @@ export default function LoginScreen() {
               value={email}
               onChangeText={setEmail}
               placeholder="you@example.com"
-              placeholderTextColor={Colors.slate[300]}
+              placeholderTextColor={Colors.slate[400]}
               keyboardType="email-address"
               autoCapitalize="none"
               autoComplete="email"
@@ -80,7 +111,7 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               placeholder="••••••••"
-              placeholderTextColor={Colors.slate[300]}
+              placeholderTextColor={Colors.slate[400]}
               secureTextEntry={!showPass}
               autoCapitalize="none"
               autoComplete="password"
@@ -116,8 +147,26 @@ export default function LoginScreen() {
         {/* Divider */}
         <Text style={styles.orText}>или</Text>
 
+        {/* Google OAuth */}
+        {GOOGLE_WEB_CLIENT_ID || GOOGLE_IOS_CLIENT_ID || GOOGLE_ANDROID_CLIENT_ID ? (
+          <TouchableOpacity
+            style={[styles.googleBtn, (oauthLoading || !request) && styles.btnDisabled]}
+            onPress={() => void promptGoogleAsync()}
+            disabled={oauthLoading || !request}
+          >
+            {oauthLoading ? (
+              <ActivityIndicator color={Colors.slate[700]} />
+            ) : (
+              <>
+                <Ionicons name="logo-google" size={18} color="#EA4335" />
+                <Text style={styles.googleBtnText}>Войти через Google</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        ) : null}
+
         {/* Register link */}
-        <TouchableOpacity onPress={() => router.replace('/(auth)/register')}>
+        <TouchableOpacity onPress={() => router.replace('/(auth)/register')} style={{ marginTop: 20 }}>
           <Text style={styles.switchText}>
             Нет аккаунта? <Text style={styles.switchLink}>Создать</Text>
           </Text>
@@ -167,6 +216,18 @@ const styles = StyleSheet.create({
   btnText: { color: Colors.white, fontSize: 16, fontWeight: '700' },
 
   orText: { textAlign: 'center', color: Colors.slate[400], marginVertical: 20, fontSize: 14 },
+  googleBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: Colors.white,
+    borderRadius: 14,
+    paddingVertical: 14,
+    borderWidth: 1,
+    borderColor: Colors.sand[200],
+  },
+  googleBtnText: { fontSize: 15, fontWeight: '600', color: Colors.slate[700] },
   switchText: { textAlign: 'center', fontSize: 15, color: Colors.slate[600] },
   switchLink: { color: Colors.pine[500], fontWeight: '600' },
 });

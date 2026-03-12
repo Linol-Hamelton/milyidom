@@ -381,6 +381,89 @@ export class AuthService {
     return { user: safeUser, ...tokens };
   }
 
+  /**
+   * Verify a Google id_token (obtained via expo-auth-session PKCE on mobile)
+   * by calling Google's tokeninfo endpoint, then find-or-create the user.
+   */
+  async loginWithGoogleIdToken(idToken: string): Promise<AuthResult> {
+    if (!idToken) {
+      throw new UnauthorizedException('Missing id_token');
+    }
+
+    const res = await fetch(
+      `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+    );
+
+    if (!res.ok) {
+      throw new UnauthorizedException('Invalid Google id_token');
+    }
+
+    const payload = (await res.json()) as {
+      sub: string;
+      email?: string;
+      given_name?: string;
+      family_name?: string;
+      picture?: string;
+    };
+
+    if (!payload.sub || !payload.email) {
+      throw new UnauthorizedException('Google token payload incomplete');
+    }
+
+    return this.findOrCreateOAuthUser({
+      provider: 'google',
+      providerId: payload.sub,
+      email: payload.email,
+      firstName: payload.given_name ?? '',
+      lastName: payload.family_name ?? '',
+      avatarUrl: payload.picture,
+    });
+  }
+
+  /**
+   * Verify a VK user access token by calling VK's users.get API,
+   * then find-or-create the user.
+   */
+  async loginWithVkToken(accessToken: string, vkUserId: string): Promise<AuthResult> {
+    if (!accessToken || !vkUserId) {
+      throw new UnauthorizedException('Missing VK credentials');
+    }
+
+    const res = await fetch(
+      `https://api.vk.com/method/users.get?user_ids=${vkUserId}&fields=photo_200,email&access_token=${accessToken}&v=5.131`,
+    );
+
+    if (!res.ok) {
+      throw new UnauthorizedException('Invalid VK token');
+    }
+
+    const data = (await res.json()) as {
+      response?: Array<{
+        id: number;
+        first_name: string;
+        last_name: string;
+        photo_200?: string;
+        email?: string;
+      }>;
+    };
+
+    const vkUser = data.response?.[0];
+    if (!vkUser) {
+      throw new UnauthorizedException('VK user not found');
+    }
+
+    const email = vkUser.email ?? `vk_${vkUser.id}@vk.milyidom.com`;
+
+    return this.findOrCreateOAuthUser({
+      provider: 'vk',
+      providerId: String(vkUser.id),
+      email,
+      firstName: vkUser.first_name,
+      lastName: vkUser.last_name,
+      avatarUrl: vkUser.photo_200,
+    });
+  }
+
   private sanitizeUser(user: PrismaUserWithProfile): CurrentUser {
     const { password, ...safeUser } = user;
     void password;

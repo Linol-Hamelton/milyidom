@@ -194,7 +194,7 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', borderRadius: 4 },
   progressText: { fontSize: 12, marginTop: 8, fontWeight: '500' },
   section: { paddingHorizontal: 16, marginBottom: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.slate[800], marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.slate[700], marginBottom: 10 },
   infoCard: {
     backgroundColor: Colors.white,
     borderRadius: 16,
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   txRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14 },
   txIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center' },
   txBody: { flex: 1 },
-  txDesc: { fontSize: 14, color: Colors.slate[800], fontWeight: '500' },
+  txDesc: { fontSize: 14, color: Colors.slate[700], fontWeight: '500' },
   txDate: { fontSize: 11, color: Colors.slate[400], marginTop: 2 },
   txPoints: { fontSize: 15, fontWeight: '700' },
   divider: { height: StyleSheet.hairlineWidth, backgroundColor: Colors.slate[200], marginLeft: 62 },

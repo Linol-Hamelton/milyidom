@@ -6,9 +6,11 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router, Stack } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
+import * as WebBrowser from 'expo-web-browser';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getListingById } from '@/services/listings';
 import { createBooking } from '@/services/bookings';
+import { createPaymentIntent } from '@/services/payments';
 import { Colors } from '@/constants/colors';
 
 // Simple date range picker — displays two date presses opening native date pickers via Alert
@@ -50,21 +52,35 @@ export default function BookingScreen() {
 
   const bookMutation = useMutation({
     mutationFn: createBooking,
-    onSuccess: (booking) => {
+    onSuccess: async (booking) => {
       void qc.invalidateQueries({ queryKey: ['my-bookings'] });
+
+      // Try to get YooKassa payment URL and open WebView
+      try {
+        const intent = await createPaymentIntent(booking.id);
+        if (intent.confirmationUrl) {
+          const result = await WebBrowser.openAuthSessionAsync(
+            intent.confirmationUrl,
+            'milyidom://payment-result',
+          );
+          void qc.invalidateQueries({ queryKey: ['my-bookings'] });
+          if (result.type === 'success') {
+            Alert.alert('Оплата принята', 'Бронирование оплачено!', [
+              { text: 'К поездкам', onPress: () => router.replace('/(tabs)/bookings') },
+            ]);
+            return;
+          }
+        }
+      } catch {
+        // Payment intent failed — still show booking success
+      }
+
       Alert.alert(
         'Бронирование создано!',
         listing?.instantBook
           ? 'Ваше бронирование подтверждено автоматически.'
           : 'Ожидайте подтверждения от хозяина.',
-        [
-          {
-            text: 'К поездкам',
-            onPress: () => {
-              router.replace('/(tabs)/bookings');
-            },
-          },
-        ],
+        [{ text: 'К поездкам', onPress: () => router.replace('/(tabs)/bookings') }],
       );
     },
     onError: (err: unknown) => {
@@ -92,7 +108,7 @@ export default function BookingScreen() {
               listingId,
               checkIn: checkIn.toISOString(),
               checkOut: checkOut.toISOString(),
-              guests,
+              adults: guests,
             }),
         },
       ],
@@ -171,7 +187,7 @@ export default function BookingScreen() {
               </View>
             </View>
 
-            <Ionicons name="arrow-forward" size={16} color={Colors.slate[300]} style={{ marginTop: 20 }} />
+            <Ionicons name="arrow-forward" size={16} color={Colors.slate[400]} style={{ marginTop: 20 }} />
 
             {/* Check-out */}
             <View style={styles.dateBox}>
@@ -222,7 +238,7 @@ export default function BookingScreen() {
             value={notes}
             onChangeText={setNotes}
             placeholder="Расскажите о себе или задайте вопрос..."
-            placeholderTextColor={Colors.slate[300]}
+            placeholderTextColor={Colors.slate[400]}
             multiline
             numberOfLines={3}
             maxLength={500}
@@ -324,7 +340,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  dateValue: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600', color: Colors.slate[800] },
+  dateValue: { flex: 1, textAlign: 'center', fontSize: 12, fontWeight: '600', color: Colors.slate[700] },
 
   nightsLabel: { fontSize: 12, color: Colors.slate[400], marginTop: 6 },
 
@@ -339,7 +355,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.sand[200],
     padding: 14,
     fontSize: 14,
-    color: Colors.slate[800],
+    color: Colors.slate[700],
     textAlignVertical: 'top',
     minHeight: 80,
   },

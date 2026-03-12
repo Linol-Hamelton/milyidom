@@ -73,7 +73,7 @@ export default function RegisterScreen() {
                 value={firstName}
                 onChangeText={setFirstName}
                 placeholder="Анна"
-                placeholderTextColor={Colors.slate[300]}
+                placeholderTextColor={Colors.slate[400]}
                 autoCapitalize="words"
                 returnKeyType="next"
               />
@@ -85,7 +85,7 @@ export default function RegisterScreen() {
                 value={lastName}
                 onChangeText={setLastName}
                 placeholder="Иванова"
-                placeholderTextColor={Colors.slate[300]}
+                placeholderTextColor={Colors.slate[400]}
                 autoCapitalize="words"
                 returnKeyType="next"
               />
@@ -102,7 +102,7 @@ export default function RegisterScreen() {
                 value={email}
                 onChangeText={setEmail}
                 placeholder="you@example.com"
-                placeholderTextColor={Colors.slate[300]}
+                placeholderTextColor={Colors.slate[400]}
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoComplete="email"
@@ -121,7 +121,7 @@ export default function RegisterScreen() {
                 value={password}
                 onChangeText={setPassword}
                 placeholder="Мин. 8 символов"
-                placeholderTextColor={Colors.slate[300]}
+                placeholderTextColor={Colors.slate[400]}
                 secureTextEntry={!showPass}
                 autoCapitalize="none"
                 returnKeyType="done"

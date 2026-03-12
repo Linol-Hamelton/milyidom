@@ -1,0 +1,59 @@
+name: EAS Build (Mobile)
+
+on:
+  push:
+    branches:
+      - release/mobile
+  workflow_dispatch:
+    inputs:
+      platform:
+        description: 'Platform to build'
+        required: true
+        default: 'ios'
+        type: choice
+        options:
+          - ios
+          - android
+          - all
+      profile:
+        description: 'Build profile'
+        required: true
+        default: 'preview'
+        type: choice
+        options:
+          - development
+          - preview
+          - production
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup EAS
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Install dependencies
+        working-directory: milyi-dom/apps/mobile
+        run: npm install
+
+      - name: Build on EAS
+        working-directory: milyi-dom/apps/mobile
+        run: |
+          PLATFORM="${{ github.event.inputs.platform || 'ios' }}"
+          PROFILE="${{ github.event.inputs.profile || 'preview' }}"
+          if [ "$PLATFORM" = "all" ]; then
+            eas build --platform all --profile "$PROFILE" --non-interactive
+          else
+            eas build --platform "$PLATFORM" --profile "$PROFILE" --non-interactive
+          fi

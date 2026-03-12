@@ -114,6 +114,13 @@ export class UsersController {
     return this.usersService.registerPushToken(user.id, token);
   }
 
+  @Delete('me/push-token')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(200)
+  clearPushToken(@CurrentUser() user: CurrentUserType) {
+    return this.usersService.clearPushToken(user.id);
+  }
+
   @Post('me/become-host')
   @UseGuards(JwtAuthGuard)
   becomeHost(@CurrentUser() user: CurrentUserType) {

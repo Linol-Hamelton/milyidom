@@ -123,10 +123,10 @@ export default function ListingDetailScreen() {
             {/* Title + rating */}
             <View style={styles.titleRow}>
               <Text style={styles.title}>{listing.title}</Text>
-              {listing.rating > 0 && (
+              {(listing.rating ?? 0) > 0 && (
                 <View style={styles.ratingBadge}>
                   <Ionicons name="star" size={13} color="#F59E0B" />
-                  <Text style={styles.ratingText}>{listing.rating.toFixed(1)}</Text>
+                  <Text style={styles.ratingText}>{(listing.rating ?? 0).toFixed(1)}</Text>
                   {listing.reviewCount > 0 && (
                     <Text style={styles.reviewCount}>({listing.reviewCount})</Text>
                   )}
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12 },
   title: { flex: 1, fontSize: 20, fontWeight: '700', color: Colors.slate[900], lineHeight: 26 },
   ratingBadge: { flexDirection: 'row', alignItems: 'center', gap: 3 },
-  ratingText: { fontSize: 14, fontWeight: '700', color: Colors.slate[800] },
+  ratingText: { fontSize: 14, fontWeight: '700', color: Colors.slate[700] },
   reviewCount: { fontSize: 12, color: Colors.slate[400] },
 
   locationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 6 },

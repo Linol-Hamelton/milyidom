@@ -64,7 +64,7 @@ export default function SearchScreen() {
         <FlatList
           data={data?.items ?? []}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ListingCard listing={item} />}
+          renderItem={({ item }) => <ListingCard item={item} />}
           contentContainerStyle={styles.list}
           ListHeaderComponent={
             data && (
@@ -75,7 +75,7 @@ export default function SearchScreen() {
           }
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="search-outline" size={48} color={Colors.slate[300]} />
+              <Ionicons name="search-outline" size={48} color={Colors.slate[400]} />
               <Text style={styles.emptyText}>
                 {submitted ? 'Ничего не найдено' : 'Введите запрос для поиска'}
               </Text>

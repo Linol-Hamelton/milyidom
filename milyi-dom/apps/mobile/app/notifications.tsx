@@ -138,7 +138,7 @@ export default function NotificationsScreen() {
           )}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="notifications-outline" size={56} color={Colors.slate[300]} />
+              <Ionicons name="notifications-outline" size={56} color={Colors.slate[400]} />
               <Text style={styles.emptyTitle}>Уведомлений пока нет</Text>
             </View>
           }

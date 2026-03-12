@@ -37,7 +37,7 @@ export default function HomeScreen() {
         <FlatList
           data={data ?? []}
           keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ListingCard listing={item} />}
+          renderItem={({ item }) => <ListingCard item={item} />}
           contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl

@@ -1,12 +1,15 @@
 import {
   ForbiddenException,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import { NotificationType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppGateway } from '../gateway/app.gateway';
+
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
 
 type NotificationTemplate = { title: string; body: string };
 
@@ -35,6 +38,8 @@ const DEFAULT_TEMPLATES: Record<NotificationType, NotificationTemplate> = {
 
 @Injectable()
 export class NotificationsService {
+  private readonly logger = new Logger(NotificationsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly gateway: AppGateway,
@@ -138,7 +143,52 @@ export class NotificationsService {
       data: data.data as Record<string, unknown> | undefined,
     });
 
+    // Send Expo push notification if user has a registered token
+    void this.sendExpoPush(data.userId, data.title, data.body, data.data as Record<string, unknown> | undefined);
+
     return notification;
+  }
+
+  private async sendExpoPush(
+    userId: string,
+    title: string,
+    body: string,
+    data?: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      const user = await this.prisma.user.findUnique({
+        where: { id: userId },
+        select: { pushToken: true },
+      });
+
+      if (!user?.pushToken || !user.pushToken.startsWith('ExponentPushToken')) {
+        return;
+      }
+
+      const payload = {
+        to: user.pushToken,
+        title,
+        body,
+        sound: 'default',
+        data: data ?? {},
+      };
+
+      const res = await fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Accept-Encoding': 'gzip, deflate',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (!res.ok) {
+        this.logger.warn(`Expo push failed: ${res.status} for user ${userId}`);
+      }
+    } catch (err) {
+      this.logger.warn(`Expo push error for user ${userId}: ${String(err)}`);
+    }
   }
 
   private normalizeJson(
