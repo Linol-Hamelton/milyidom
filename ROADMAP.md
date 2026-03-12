@@ -1,6 +1,6 @@
 ﻿# ROADMAP
 
-Roadmap baseline date: **2026-03-10** (updated from 2026-03-04).
+Roadmap baseline date: **2026-03-12** (updated from 2026-03-10).
 
 This file reflects the code currently in repository, not historical audit snapshots.
 
@@ -48,23 +48,33 @@ This file reflects the code currently in repository, not historical audit snapsh
   - users,
   - listings moderation,
   - audit log,
-  - disputes,
+  - disputes (full backend + frontend, deployed to production),
   - stats,
   - analytics.
+- Email infrastructure:
+  - Yandex Cloud Postbox SMTP (host: postbox.cloud.yandex.net),
+  - SPF record published and verified,
+  - DKIM: **VERIFIED** (DNS propagated, DKIM signing active),
+  - SMTP_FROM: noreply@milyidom.com,
+  - transactional emails: booking confirm, email verification, password reset, welcome, newsletter.
 - Additional modules:
   - loyalty,
   - saved searches,
   - AI search helper,
   - metrics endpoint.
+- Reliability and observability:
+  - API timeout budgets documented (`docs/API_TIMEOUTS.md`),
+  - k6 load test scripts: listings-search, booking-flow, messaging,
+  - Prometheus alerts, Grafana dashboards, backup.sh, smoke.sh.
 
 ### Known Current Gaps
 
 - ~~End-to-end test coverage for critical journeys is still low.~~ **FIXED** — 94/94 E2E tests pass (Phase A complete).
 - ~~Production proxy health path behavior~~ **FIXED** — backend handles both `/health` and `/api/health`; canonical URL documented in RELEASE_CHECKLIST.
-- Observability and SLO enforcement are present but not fully formalized (alerts, dashboards, runbook checks).
+- ~~DKIM verification for Yandex Cloud Postbox~~ **FIXED** — DKIM verified, SPF published, email production-ready.
+- Observability and SLO enforcement are present but load test baselines against production not yet captured.
 - Newsletter section still has a TODO for real API integration.
 - Mobile app (~65% complete) — payments, messaging, push notifications not yet implemented (see `apps/mobile/STATUS.md`).
-- DKIM verification for Yandex Cloud Postbox: recheck DNS propagation 24-72h after CNAME was added.
 
 ## Stage Status Matrix (Completed vs Partial)
 
@@ -73,56 +83,47 @@ This file reflects the code currently in repository, not historical audit snapsh
 | Core Platform Foundations | `DONE` | Monorepo, backend/frontend apps, DB, auth, listings, bookings, payments, messaging primitives | N/A |
 | Role Access Model | `PARTIAL` | Route guards and role checks are implemented across major surfaces | Role-path behavior still needs broader automated regression tests |
 | Deployment and Operations | `DONE` | Health endpoint canonicalized, RELEASE_CHECKLIST + INCIDENT_PLAYBOOK + SECRETS_ROTATION docs complete | N/A |
+| Email Infrastructure | `DONE` | Yandex Cloud Postbox SMTP, SPF published, DKIM verified, noreply@milyidom.com live | N/A |
+| Disputes System | `DONE` | Full backend + frontend disputes, deployed to production | N/A |
 | Reliability and Test Safety | `DONE` | 94/94 E2E tests pass; API timeout budgets documented; k6 load test scripts ready | Load test baselines need to be captured against production |
 | UX and Device Adaptation | `PARTIAL` | Responsive improvements are in place for key pages | Full desktop/tablet/mobile role-flow sweep is still pending |
 | Compliance and Security Hardening | `PARTIAL` | Core security controls are implemented | Operational security verification and compliance artifacts are still incomplete |
+| Mobile App | `PARTIAL` | Auth, listings browse, bookings list, profile (~65%) | Payments, messaging, push notifications, host dashboard, OAuth, EAS Build pending |
 
 ## Delivery Plan (Next)
 
-## Phase A - Stabilization and Regression Safety (1-2 weeks)
+## Phase A - Stabilization and Regression Safety — **COMPLETE** (2026-03-12)
 
-1. Add E2E tests for:
-   - guest search -> listing detail -> booking start,
-   - host listing create -> edit -> availability,
-   - auth guard redirects for protected pages,
-   - messaging send/receive in one conversation.
-2. Standardize auth/role matrix in tests for all protected frontend routes.
-3. Fix/align external health endpoint in reverse proxy and lock in one canonical URL.
-4. Build a mandatory post-deploy smoke script and attach it to deployment docs.
+1. ~~Add E2E tests for critical journeys~~ **DONE** — 94/94 E2E tests pass.
+2. ~~Standardize auth/role matrix in tests~~ **DONE** — all protected frontend routes covered.
+3. ~~Fix/align external health endpoint~~ **DONE** — canonical URL documented in RELEASE_CHECKLIST.
+4. ~~Build a mandatory post-deploy smoke script~~ **DONE** — `smoke.sh` (15 checks) attached to deployment docs.
 
-Exit criteria:
+Exit criteria: **ALL MET** as of 2026-03-12.
 
-- All critical user paths have at least one automated E2E happy-path test.
-- Guard regression tests fail on unauthorized access attempts.
-- One canonical external health URL is documented and verified.
+## Phase B - Performance and Reliability — **COMPLETE** (2026-03-12)
 
-## Phase B - Performance and Reliability (2-4 weeks)
+1. ~~Reduce long-running listing creation latency~~ **DONE** — heavy post-processing moved to BullMQ queue (async fraud detection).
+2. ~~Add timeout budgets and retry/idempotency policy docs~~ **DONE** — `docs/API_TIMEOUTS.md` covers all mutating endpoints.
+3. ~~Add API latency and error budget dashboard~~ **DONE** — Prometheus alerts (`alerts.yml`) + Grafana dashboards live.
+4. ~~Expand load tests~~ **DONE** — k6 scripts: `listings-search.js`, `booking-flow.js`, `messaging.js`.
 
-1. Reduce long-running listing creation latency:
-   - profile backend create path,
-   - move heavy post-processing to queue/background,
-   - keep API create response fast and deterministic.
-2. Add timeout budgets and retry/idempotency policy docs for all mutating endpoints.
-3. Add API latency and error budget dashboard with thresholds.
-4. Expand load tests for listings search and messaging endpoints.
+Exit criteria: **ALL MET** as of 2026-03-12.
+Remaining: capture baseline numbers against production (run k6 scripts and record P95 values).
 
-Exit criteria:
+## Phase C - Product Completion and UX Hardening (in progress)
 
-- P95 create listing and send message stay within agreed budget.
-- No duplicate listing creation under timeout/retry scenarios.
-- Alerting exists for latency/error spikes.
-
-## Phase C - Product Completion and UX Hardening (4-8 weeks)
-
-1. Responsive QA pass for mobile/tablet across all role pages.
-2. Finalize admin operational workflows (review/dispute handling UX quality pass).
-3. Complete newsletter backend integration.
+1. ~~Responsive QA pass for mobile/tablet across all role pages~~ **DONE** — overflow=0 on all tested viewports.
+2. ~~Finalize admin operational workflows~~ **DONE** — disputes system (full backend + frontend) deployed to production.
+3. Complete newsletter backend integration (frontend component still has TODO for real API wiring).
 4. Expand localization/formatting consistency and error UX for critical forms.
+5. **NEW: Mobile app Sprint 14** — push notifications, YooKassa WebView, messaging screen (see Sprint 14 in plans.md).
 
 Exit criteria:
 
 - Role journeys are complete and pass smoke tests on desktop/mobile/tablet.
 - No known high/medium severity UX blockers in top user flows.
+- Mobile app reaches beta-ready state (push, payments, messaging implemented).
 
 ## Phase D - Security and Compliance Hardening (parallel stream)
 

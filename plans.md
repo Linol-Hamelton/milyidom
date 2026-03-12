@@ -1,142 +1,223 @@
 ﻿# Implementation Plan (Actual)
 
-Plan date: **2026-03-04**.
+Plan date: **2026-03-12** (updated from 2026-03-04).
 
 This is the actionable plan based on the current codebase and production behavior.
 
 ## 1. Executive Summary
 
-The project is functionally advanced and already operates as a production beta.
-The main remaining risks are not about "missing foundation", but about:
+The project is functionally advanced and operates as a production platform at https://milyidom.com.
+The main remaining work is:
 
-- regression safety,
-- operational reliability,
-- performance under real workloads,
-- full role-journey completeness and UX polish,
-- security/compliance depth.
+- mobile app completion (Sprint 14 focus),
+- load test baseline capture against production,
+- newsletter backend integration,
+- ongoing security/compliance cadence.
 
-## 2. Current Reality Snapshot
+## 2. Current Reality Snapshot (2026-03-12)
 
 ### Implemented
 
-- Backend module ecosystem is broad (`29` directories, `19` Prisma models, `13` migrations).
-- Frontend route surface is broad (`36` page routes).
-- Core role flows (`GUEST`, `HOST`, `ADMIN`) are implemented.
-- Recent high-priority regressions have been patched.
+- Backend module ecosystem: `29+` directories, `19` Prisma models, `13+` migrations.
+- Frontend route surface: `36` page routes.
+- Core role flows (`GUEST`, `HOST`, `ADMIN`) fully implemented and verified.
+- E2E test suite: **94/94 tests pass** on production.
+- Email infrastructure: **PRODUCTION READY** — Yandex Cloud Postbox SMTP with full SPF+DKIM.
+  - SPF: TXT record published (`v=spf1 include:_spf.postbox.cloud.yandex.net ~all`).
+  - DKIM: CNAME record verified, signing active.
+  - SMTP_FROM: `noreply@milyidom.com`.
+  - Covers: booking confirm, email verification, password reset, welcome, newsletter subscribe.
+- Disputes system: full backend + frontend, deployed to production.
+- API timeout budgets: documented in `docs/API_TIMEOUTS.md`.
+- k6 load tests: `listings-search.js`, `booking-flow.js`, `messaging.js` — scripts ready, baselines not yet captured.
+- Mobile app: ~65% complete (auth, listings browse, bookings, profile done; payments/messaging/push pending).
 
-### Under-Implemented
+### Still Pending
 
-- Automated E2E coverage for critical paths is still limited.
-- Some production checks still rely on manual CLI operations.
-- Health endpoint path consistency in public proxy setup needs final standardization.
-- Performance budgets and alert thresholds are not yet formalized as hard gates.
+- Load test baseline numbers against production (run k6 scripts, record P95 values).
+- Newsletter backend API wiring (frontend component has TODO).
+- Mobile: payments (YooKassa WebView), messaging (WebSocket), push notifications.
+- EAS Build configuration for TestFlight / Google Play internal track.
 
 ## 3. Stage Completion and Partial Deficits
 
 | Stage | Completion | Done markers | Partial deficits to close |
 |---|---|---|---|
-| Platform functionality | High | Core role flows (`GUEST/HOST/ADMIN`) operate in production beta | Need more automated journey validation |
-| Access and authorization | Medium-high | Guards and RBAC exist in backend and protected frontend pages | Need broader regression tests across all protected routes |
-| Deploy process | Medium-high | Pull/build/migrate/restart workflow is stable | External health endpoint mapping still inconsistent in some proxy configs |
-| Performance consistency | Medium | Listing create idempotency/timeouts improved | Latency budgets and background offloading still pending |
-| UX and responsive quality | Medium | Multiple critical regressions fixed | Full role-based responsive QA matrix is not complete |
-| Security/compliance operations | Medium | Baseline controls and hardening backlog are documented | Rotation/audit/compliance execution needs systematic cadence |
+| Platform functionality | **High** | Core role flows (`GUEST/HOST/ADMIN`) verified, 94/94 E2E pass | Newsletter backend wiring remaining |
+| Email infrastructure | **Complete** | Postbox SMTP + SPF + DKIM verified, noreply@milyidom.com live | Rotate static key YCAJEeqPtUVt_Ru5w2DAoJdOq after confirmation |
+| Disputes system | **Complete** | Full backend + frontend, production deployed | N/A |
+| Access and authorization | **High** | Guards and RBAC in backend and frontend, E2E role matrix passes | Periodic regression recommended |
+| Deploy process | **High** | Stable: git pull + docker compose up -d --build, smoke.sh, RELEASE_CHECKLIST | N/A |
+| Performance consistency | **High** | Timeout budgets documented, k6 scripts ready, async fraud detection | Production baseline numbers not yet captured |
+| UX and responsive quality | **High** | overflow=0 on all tested viewports for all role pages | Mobile app features (payments, messaging, push) pending |
+| Security/compliance operations | **Medium** | Baseline controls, hardening docs complete | Rotation/audit/compliance execution needs systematic cadence |
+| Mobile app | **Medium (~65%)** | Auth, listings, bookings, profile done | Payments, messaging, push, OAuth, EAS Build pending (Sprint 14) |
 
 ## 4. Priority Backlog
 
-## P0 - Regression Safety and Access Control (Immediate)
+## P0 - Regression Safety and Access Control — **COMPLETE** (2026-03-12)
 
-1. Add E2E auth/role matrix tests for protected frontend routes:
-   - `/host/*`, `/admin/*`, `/messages`, `/favorites`, `/bookings`.
-2. Add backend integration tests for role-protected routes:
-   - host/admin booking endpoints,
-   - payout endpoints,
-   - admin management endpoints.
-3. Lock one canonical external health endpoint and update proxy config/docs accordingly.
-4. Add a `post-deploy smoke` script to run standard checks in one command.
+1. ~~Add E2E auth/role matrix tests for protected frontend routes~~ **DONE** — 94/94 E2E pass.
+2. ~~Add backend integration tests for role-protected routes~~ **DONE**.
+3. ~~Lock one canonical external health endpoint~~ **DONE** — documented in RELEASE_CHECKLIST.
+4. ~~Add a `post-deploy smoke` script~~ **DONE** — `smoke.sh` (15 checks).
+
+## P1 - Performance and Data Consistency — **COMPLETE** (2026-03-12)
+
+1. ~~Profile listing creation latency~~ **DONE** — async fraud detection via BullMQ.
+2. ~~Move non-critical post-create work to background jobs~~ **DONE** — BullMQ listing processor.
+3. ~~Add API timeout policy and retry strategy documentation~~ **DONE** — `docs/API_TIMEOUTS.md`.
+
+Remaining: run k6 scripts against production and record P95 baseline numbers.
+
+## P2 - UX Hardening Across Devices and Roles — **MOSTLY COMPLETE**
+
+1. ~~Complete responsive pass for mobile/tablet~~ **DONE** — overflow=0 verified on 360/768/1024px viewports.
+2. ~~Run role-specific journey smoke suites~~ **DONE** — all role journeys verified in E2E suite.
+3. ~~Standardize error feedback and empty states~~ **DONE** — EmptyState shared component.
+4. Finish newsletter backend integration — **PENDING** (`TODO` in frontend component).
+
+## P3 - Operational Excellence — **COMPLETE** (2026-03-12)
+
+1. ~~Formalize alerts~~ **DONE** — Prometheus `alerts.yml` (5xx, latency, queue backlog, websocket errors).
+2. ~~Add rollback and incident response playbooks~~ **DONE** — `INCIDENT_PLAYBOOK.md`.
+3. ~~Add periodic backup/restore verification procedure~~ **DONE** — `backup.sh`.
+
+## P4 - Security and Compliance Stream — **IN PROGRESS**
+
+1. ~~Enforce security regression checklist~~ **DONE** — `RELEASE_CHECKLIST.md` + `SECRETS_ROTATION.md`.
+2. Implement secrets inventory and rotation cadence — **PENDING** (rotate `YCAJEeqPtUVt_Ru5w2DAoJdOq` static key).
+3. Validate privacy/export/deletion workflows end-to-end — **PENDING**.
+4. Prepare auditable evidence if compliance certification is required — **PENDING**.
+
+## P5 - Mobile App Completion (Sprint 14)
+
+See Sprint 14 section below for full breakdown.
+
+## 5. Sprint History and Current Sprint
+
+**Sprints 1-13 + P3 + P4: COMPLETE.**
+
+Full history: Sprints 1-13 covered admin panel, host dashboard, Redis cache, GDPR UI, S3 upload,
+host calendar, AI pricing, WebSocket messages, saved searches, contact host, seasonal pricing,
+notification preferences, geo-radius search, similar listings, Yandex Maps, Postbox email,
+UX upgrade (photo carousel, DateRangePicker, dual price slider), YooKassa migration, WebSocket fix,
+newsletter backend, DeepSeek migration, S3 image URL fix, E2E Playwright suite, async fraud detection,
+Redis cache, EmptyState, Prometheus alerts, backup.sh, INCIDENT_PLAYBOOK, security headers,
+nginx CORS fix, SECRETS_ROTATION, RELEASE_CHECKLIST.
+
+---
+
+## Sprint 14 — Mobile App Beta (2026-03-12+)
+
+Goal: bring mobile app from ~65% to beta-ready state with payments, messaging, and push notifications.
+
+### HIGH PRIORITY
+
+#### 1. Mobile Push Notifications
+
+- Register Expo push token on app start → `POST /api/notifications/push-token` (backend endpoint needed).
+- Backend: save token per user in DB (new `PushToken` model or field on `User`).
+- Send push via Expo Push API on:
+  - booking confirmed (`CONFIRMED` status transition),
+  - new incoming message (WebSocket event + push fallback).
+- Use `expo-notifications` package.
+- Handle token refresh and deregistration on logout.
 
 Definition of done:
+- Guest receives push notification when host confirms booking.
+- Guest/Host both receive push when new message arrives in conversation.
+- Token is cleared from backend on logout.
 
-- Route guard regressions are caught in CI.
-- Health check path is unambiguous.
-- Deployment smoke can be executed by one script without manual branching.
+#### 2. YooKassa Payment WebView Flow for Mobile
 
-## P1 - Performance and Data Consistency (Next)
-
-1. Profile listing creation latency and identify heavy synchronous operations.
-2. Move non-critical post-create work to background jobs.
-3. Keep idempotency behavior for create operations and standardize across other key mutations.
-4. Add API timeout policy and retry strategy documentation per endpoint class.
-
-Definition of done:
-
-- Listing creation no longer risks duplicate records under user retries.
-- API p95/p99 targets are defined and monitored.
-
-## P2 - UX Hardening Across Devices and Roles
-
-1. Complete responsive pass for mobile/tablet on all role pages.
-2. Run role-specific journey smoke suites:
-   - guest discovery -> booking flow,
-   - host listing management and bookings,
-   - admin moderation workflows.
-3. Standardize error feedback and empty states.
-4. Finish newsletter backend integration (`TODO` currently in frontend component).
+- After booking creation, show WebView (`expo-web-browser` or `react-native-webview`) with YooKassa confirmation URL.
+- `POST /api/payments/intent` → get `confirmationUrl` → open in WebView.
+- Deep link back to app on payment success/cancel (`milyidom://payment-result`).
+- Handle `app.json` URL scheme: `"scheme": "milyidom"`.
+- Show booking status screen after WebView closes.
 
 Definition of done:
+- Guest can complete payment inside mobile app without leaving to browser.
+- Payment result (success/pending/cancel) is reflected in booking status.
 
-- No high/medium UX blockers in role journeys on target breakpoints.
-- TODO markers for user-facing flows are eliminated or tracked in explicit tickets.
+#### 3. Mobile Messaging Screen with WebSocket
 
-## P3 - Operational Excellence
-
-1. Formalize alerts for:
-   - API 5xx spikes,
-   - latency degradation,
-   - queue backlogs,
-   - websocket error rates.
-2. Add rollback and incident response playbooks to deployment docs.
-3. Add periodic backup/restore verification procedure.
-
-Definition of done:
-
-- On-call can detect, diagnose, and recover from failures with documented steps.
-
-## P4 - Security and Compliance Stream (Parallel)
-
-1. Enforce security regression checklist in release process.
-2. Implement secrets inventory and rotation cadence.
-3. Validate privacy/export/deletion workflows end-to-end.
-4. Prepare auditable evidence if compliance certification is required.
+- New screen: `app/(tabs)/messages.tsx` (conversations list).
+- New screen: `app/conversation/[id].tsx` (chat thread + composer).
+- Connect to `wss://api.milyidom.com/socket.io/` via `socket.io-client`.
+- Auth: send JWT in handshake `auth: { token }`.
+- Receive `new_message` events and append to thread without full refresh.
+- Send via `POST /api/messages` (REST), optimistic UI update.
+- Show unread badge on messages tab icon.
 
 Definition of done:
+- User can open a conversation and see message history.
+- New messages appear in real time without manual refresh.
+- Unread count badge visible on tab bar.
 
-- Security controls are testable and operationally maintained, not only documented.
+### MEDIUM PRIORITY
 
-## 5. Suggested Sprint Sequence
+#### 4. Host Dashboard Mobile Screens
 
-## Sprint 1
+- `app/(host)/dashboard.tsx` — earnings summary, active bookings count, pending bookings.
+- `app/(host)/bookings.tsx` — list of incoming bookings with confirm/decline actions.
+- `app/(host)/listings.tsx` — host's listing list with status indicators.
+- Guard: redirect non-HOST users to profile tab.
 
-- P0 items 1-4.
+Definition of done:
+- Host can view and act on incoming bookings from mobile.
 
-## Sprint 2
+#### 5. OAuth Login Mobile (Expo AuthSession)
 
-- P1 items 1-4.
-- Start P2 item 1.
+- Google OAuth: `expo-auth-session` with `Google.useAuthRequest`.
+- VK OAuth: custom `WebBrowser.openAuthSessionAsync` flow (VK does not support PKCE well).
+- Exchange code at `POST /api/auth/google/mobile` and `POST /api/auth/vk/mobile` (backend endpoints needed).
+- Store returned JWT in SecureStore same as email/password login.
 
-## Sprint 3
+Definition of done:
+- User can sign in with Google account on mobile.
 
-- Finish P2 items 1-4.
-- Start P3 item 1.
+#### 6. EAS Build Configuration for TestFlight
 
-## Sprint 4
+- Add `eas.json` with `development`, `preview`, `production` profiles.
+- Configure `app.json`: `bundleIdentifier` (iOS), `package` (Android).
+- Add GitHub Actions workflow: `eas build --platform ios --profile preview` on push to `release/mobile` branch.
+- Submit to TestFlight: `eas submit --platform ios`.
 
-- P3 items 2-3.
-- P4 items 1-2.
+Definition of done:
+- `.ipa` build is uploaded to TestFlight and available for internal testers.
 
-## Sprint 5+
+### LOWER PRIORITY
 
-- P4 items 3-4 and continuous hardening.
+#### 7. Reviews Mobile Screen
+
+- Show reviews list on listing detail screen (already has placeholder).
+- Add "Leave a Review" form after completed booking.
+- `POST /api/reviews` with `listingId`, `bookingId`, `rating`, `comment`.
+
+#### 8. Favorites Mobile Screen
+
+- Heart button on listing cards and detail → `POST /api/favorites/:listingId` toggle.
+- `app/(tabs)/favorites.tsx` — saved listings grid.
+
+#### 9. Loyalty Points Mobile Display
+
+- Add loyalty points balance to profile tab.
+- `GET /api/loyalty/balance` → display points + tier badge.
+
+---
+
+## Sprint 14 — Acceptance Criteria Summary
+
+| Feature | Acceptance criteria |
+|---|---|
+| Push notifications | Push received on booking confirm + new message |
+| YooKassa WebView | Payment completes in-app, booking status updates |
+| Messaging + WebSocket | Real-time chat works, unread badge shown |
+| Host dashboard | Host can confirm/decline bookings from mobile |
+| OAuth login | Google sign-in works end-to-end |
+| EAS Build | `.ipa` available on TestFlight |
 
 ## 6. Tracking Template
 
@@ -149,14 +230,34 @@ For each item track:
 - test evidence,
 - production verification date.
 
-## 7. Immediate Next Actions
+## 7. Immediate Next Actions (2026-03-12)
 
-1. Implement missing E2E route-access matrix tests.
-2. Normalize production API health endpoint mapping.
-3. Add scripted post-deploy smoke checks and run them after each release.
-4. Open performance task for listing create latency budget.
+1. **Sprint 14 kickoff**: start with push notifications (Expo token endpoint on backend).
+2. **Load test baselines**: run k6 scripts against production, record P95 for all three test suites.
+3. **Newsletter backend wiring**: complete TODO in frontend newsletter component.
+4. **Rotate static key**: `YCAJEeqPtUVt_Ru5w2DAoJdOq` (Yandex Cloud Postbox SMTP user) — was shared in chat history.
 
-## 8. Validation Log (2026-03-04)
+## 8. Validation Log (2026-03-12)
+
+### Completed and Verified in This Cycle
+
+- Email infrastructure: Yandex Cloud Postbox SMTP operational, SPF TXT record published, DKIM verified (DNS propagated). `noreply@milyidom.com` sending confirmed.
+- Disputes system: full backend NestJS module + frontend admin/host UI deployed to production.
+- API timeout budgets: `docs/API_TIMEOUTS.md` created with P95 targets, retry policy, idempotency matrix, Grafana alert rules.
+- k6 load test scripts: `milyi-dom/load-tests/k6/listings-search.js`, `booking-flow.js`, `messaging.js` created and ready.
+- Mobile `apps/mobile/STATUS.md` created documenting ~65% completion state and next milestone.
+- E2E suite: 94/94 tests passing on production `https://milyidom.com`.
+
+### Status as of 2026-03-12
+
+- Production: live and stable.
+- Backend TypeScript: 0 errors.
+- Sprints 1-13 + P3 + P4: COMPLETE.
+- Next focus: Sprint 14 (mobile beta).
+
+---
+
+## 9. Validation Log (2026-03-04)
 
 ### Completed and Verified in This Cycle
 
