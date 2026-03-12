@@ -1,18 +1,18 @@
 ﻿# Implementation Plan (Actual)
 
-Plan date: **2026-03-12** (updated 2026-03-12 — Sprint 15 complete).
+Plan date: **2026-03-12** (updated 2026-03-12 — Sprint 15 + mobile messaging + host dashboard complete).
 
 This is the actionable plan based on the current codebase and production behavior.
 
 ## 1. Executive Summary
 
 The project is functionally advanced and operates as a production platform at https://milyidom.com.
+Sprint 15 closed all internal improvements (BE hardening, FE UX, mobile screen backlog).
 The main remaining work is:
 
-- mobile app completion (Sprint 14/15 — messaging + host dashboard mobile pending),
-- load test baseline capture against production,
 - external integrations block (Expo Push, YooKassa WebView, OAuth mobile, EAS Build),
-- ongoing security/compliance cadence.
+- load test baseline capture against production,
+- ongoing security/compliance cadence (key rotation, k6 baselines).
 
 ## 2. Current Reality Snapshot (2026-03-12)
 
@@ -30,15 +30,14 @@ The main remaining work is:
 - Disputes system: full backend + frontend, deployed to production.
 - API timeout budgets: documented in `docs/API_TIMEOUTS.md`.
 - k6 load tests: `listings-search.js`, `booking-flow.js`, `messaging.js` — scripts ready, baselines not yet captured.
-- Mobile app: ~85% complete (auth, listings, bookings, profile, favorites, notifications, reviews, loyalty, saved searches, newsletter done; messaging WebSocket + host dashboard + payments/push/OAuth pending).
+- Mobile app: **~95% complete** — auth, listings, bookings, profile, favorites, notifications, reviews, loyalty, saved searches, newsletter, **messaging (socket.io-client WebSocket + REST)**, **host dashboard (analytics + bookings confirm/decline + listings)** done. Only payments/push/OAuth/EAS Build remain.
 
 ### Still Pending
 
+- `prisma migrate deploy` on production server for 11 new indexes added to schema.prisma (run once after deploy).
 - Load test baseline numbers against production (run k6 scripts, record P95 values).
-- Mobile: messaging (WebSocket — `app/conversation/[id].tsx`), host dashboard screens.
 - Mobile external integrations: payments (YooKassa WebView), push notifications (Expo Push API), OAuth (Google/VK).
 - EAS Build configuration for TestFlight / Google Play internal track.
-- `prisma migrate deploy` on production server for 11 new indexes added to schema.prisma.
 - Rotate Yandex Cloud static key `YCAJEeqPtUVt_Ru5w2DAoJdOq`.
 
 ## 3. Stage Completion and Partial Deficits
@@ -53,7 +52,7 @@ The main remaining work is:
 | Performance consistency | **High** | Timeout budgets documented, k6 scripts ready, async fraud detection | Production baseline numbers not yet captured |
 | UX and responsive quality | **High** | overflow=0 on all tested viewports for all role pages | Mobile app features (payments, messaging, push) pending |
 | Security/compliance operations | **Medium** | Baseline controls, hardening docs complete | Rotation/audit/compliance execution needs systematic cadence |
-| Mobile app | **Medium (~65%)** | Auth, listings, bookings, profile done | Payments, messaging, push, OAuth, EAS Build pending (Sprint 14) |
+| Mobile app | **High (~95%)** | Auth, listings, bookings, profile, messaging, host dashboard done | Payments (YooKassa WebView), push (Expo Push), OAuth, EAS Build pending (Sprint 16) |
 
 ## 4. Priority Backlog
 
@@ -92,9 +91,11 @@ Remaining: run k6 scripts against production and record P95 baseline numbers.
 3. Validate privacy/export/deletion workflows end-to-end — **PENDING**.
 4. Prepare auditable evidence if compliance certification is required — **PENDING**.
 
-## P5 - Mobile App Completion (Sprint 14)
+## P5 - Mobile App Completion (Sprint 14/15) — **COMPLETE** (2026-03-12)
 
-See Sprint 14 section below for full breakdown.
+Sprint 14: MOB-1..6 (favorites, notifications, review form, loyalty, saved searches, newsletter) — done.
+Sprint 15: messaging (socket.io-client WebSocket + REST) + host dashboard (analytics/bookings/listings) — done.
+Remaining for Sprint 16: payments WebView, push notifications, OAuth, EAS Build.
 
 ## 5. Sprint History and Current Sprint
 
@@ -107,6 +108,31 @@ UX upgrade (photo carousel, DateRangePicker, dual price slider), YooKassa migrat
 newsletter backend, DeepSeek migration, S3 image URL fix, E2E Playwright suite, async fraud detection,
 Redis cache, EmptyState, Prometheus alerts, backup.sh, INCIDENT_PLAYBOOK, security headers,
 nginx CORS fix, SECRETS_ROTATION, RELEASE_CHECKLIST.
+
+---
+
+## Sprint 15 — Internal Improvements — **COMPLETE** (2026-03-12)
+
+All items from the "internal improvements without external APIs" plan:
+
+| Sprint | Items | Status |
+|--------|-------|--------|
+| P0 | Data integrity: reviews $transaction, favorites upsert, auth P2002, ical try/catch, listings pagination dupe | ✅ |
+| BE-1 | 11 Prisma indexes | ✅ |
+| BE-2 | Redis cache: listings findOne/findBySlug/reviews stats/top-hosts | ✅ |
+| BE-3 | Rate limiting: messages, newsletter, ical, bookings, search | ✅ |
+| BE-4 | DTO validation: search, SendMessage, CreatePriceOverride, ResolveDispute | ✅ |
+| BE-5 | Pagination favorites + conversations → {items, meta} | ✅ |
+| FE-1 | Error boundaries: admin/host/bookings | ✅ |
+| FE-2 | Shared Pagination + StatusBadge components | ✅ |
+| FE-3 | Host bookings + listings pagination | ✅ |
+| FE-4 | Skeleton loaders listing-detail | ✅ |
+| FE-5 | Optimistic UI: host listings status + bookings cancel | ✅ |
+| FE-6 | Form validation: price range, phone regex | ✅ |
+| SEO | metadataBase, home OG tags, listing JSON-LD (LodgingBusiness) | ✅ |
+| A11Y | aria-labels search/booking, scope=col disputes table | ✅ |
+| MOB messaging | conversations list tab + chat screen (socket.io-client WebSocket) | ✅ |
+| MOB host | analytics dashboard + bookings confirm/decline + listings | ✅ |
 
 ---
 
@@ -224,6 +250,89 @@ Definition of done:
 | Loyalty points | Balance visible on profile tab |
 | Host dashboard | Host can confirm/decline bookings from mobile |
 
+---
+
+## Sprint 16 — Mobile External Integrations (2026-03-12+)
+
+Goal: bring mobile app to full production readiness — payments, push notifications, OAuth, EAS Build.
+
+### 1. YooKassa WebView Payment Flow (HIGH)
+
+**What:** After booking creation in mobile app, open YooKassa confirmation URL in `expo-web-browser`.
+
+**Files to create/modify:**
+- `apps/mobile/app/booking/[id].tsx` — add "Оплатить" button
+- `apps/mobile/src/services/payments.ts` — `POST /api/payments/intent` → get `confirmationUrl`
+- `app.json` — URL scheme: `"scheme": "milyidom"`
+
+**Flow:**
+1. `POST /api/bookings` → get `bookingId`
+2. `POST /api/payments/intent` with `bookingId` → get `{ confirmationUrl, paymentId }`
+3. `WebBrowser.openAuthSessionAsync(confirmationUrl, 'milyidom://payment-result')`
+4. On return → poll `GET /api/payments/:paymentId/status` → update booking card
+
+**Definition of done:** Guest can complete payment fully inside mobile app.
+
+---
+
+### 2. Expo Push Notifications (HIGH)
+
+**Backend changes needed:**
+- New field `PushToken` on `User` model (or separate `PushToken` table)
+- `POST /api/notifications/push-token` — save Expo token for user
+- `DELETE /api/notifications/push-token` — clear on logout
+- Send push on booking status change (`CONFIRMED`) and new message
+
+**Mobile changes:**
+- `src/services/notifications.ts` — register token on app start, clear on logout
+- Permission request on first launch (`expo-notifications`)
+- Handle foreground notification display
+
+**Definition of done:**
+- Guest receives push when host confirms booking
+- Both parties receive push on new message (WebSocket fallback)
+- Token cleared on logout
+
+---
+
+### 3. OAuth Login Mobile (MEDIUM)
+
+**Google OAuth via expo-auth-session:**
+- `expo-auth-session` with `Google.useAuthRequest` + PKCE
+- Exchange code at `POST /api/auth/google/mobile` (backend endpoint needed)
+- Store JWT in SecureStore
+
+**VK OAuth:**
+- `WebBrowser.openAuthSessionAsync` with custom redirect
+- `POST /api/auth/vk/mobile`
+
+**Definition of done:** User can sign in with Google on mobile without password.
+
+---
+
+### 4. EAS Build for TestFlight (MEDIUM)
+
+- Add `eas.json` with `development`, `preview`, `production` profiles
+- Configure `app.json`: `bundleIdentifier: com.milyidom.app` (iOS), `package: com.milyidom.app` (Android)
+- GitHub Actions: `eas build --platform ios --profile preview` on `release/mobile` branch
+- Submit: `eas submit --platform ios`
+
+**Definition of done:** `.ipa` on TestFlight for internal testers.
+
+---
+
+### Sprint 16 Acceptance Matrix
+
+| Feature | Priority | Acceptance Criteria |
+|---------|----------|---------------------|
+| YooKassa WebView | HIGH | Payment completes in-app, booking status updates |
+| Expo Push | HIGH | Push received on booking confirm + new message |
+| OAuth Google | MEDIUM | Google sign-in works end-to-end |
+| EAS Build | MEDIUM | `.ipa` on TestFlight |
+| OAuth VK | LOW | VK sign-in works end-to-end |
+
+---
+
 ## 6. Tracking Template
 
 For each item track:
@@ -235,12 +344,59 @@ For each item track:
 - test evidence,
 - production verification date.
 
-## 7. Immediate Next Actions (2026-03-12)
+## 7. Immediate Next Actions (2026-03-12, post Sprint 15)
 
-1. **Sprint 14 kickoff**: start with push notifications (Expo token endpoint on backend).
-2. **Load test baselines**: run k6 scripts against production, record P95 for all three test suites.
-3. **Newsletter backend wiring**: complete TODO in frontend newsletter component.
+1. **`prisma migrate deploy` on production** — 11 new indexes need to be applied (run once after `git pull`).
+2. **Sprint 16 kickoff**: YooKassa WebView payment + Expo Push Notifications (see Sprint 16 plan below).
+3. **Load test baselines**: run k6 scripts against production, record P95 for all three test suites.
 4. **Rotate static key**: `YCAJEeqPtUVt_Ru5w2DAoJdOq` (Yandex Cloud Postbox SMTP user) — was shared in chat history.
+5. **EAS Build**: configure `eas.json`, build `.ipa` for TestFlight internal testing.
+
+## 11. Validation Log (2026-03-12) — Sprint 15
+
+### Completed in Sprint 15
+
+**Backend hardening:**
+- 11 Prisma indexes added to schema.prisma (migration pending on production).
+- Redis read-through cache: `listings:id:*`, `listings:slug:*`, `reviews:stats:*`, `users:top-hosts:*`.
+- Rate limits: messages (50/min), newsletter (3/h), ical (100/min), bookings (10/min), search (60/min).
+- DTO validation hardened for search q/sortBy, SendMessageDto, CreatePriceOverride, ResolveDispute.
+- favorites + conversations pagination → `{ items, meta }`.
+- Data integrity: reviews $transaction, favorites upsert, auth P2002→409, ical try/catch.
+
+**Frontend UX:**
+- Error boundaries: `admin/error.tsx`, `host/error.tsx`, `bookings/error.tsx`.
+- Shared `<Pagination>` and `<StatusBadge>` components.
+- Pagination added to host/bookings + host/listings.
+- Skeleton loader in listing-detail-client.
+- Optimistic UI: host listing status toggle + booking cancel.
+- Form validation: price range, phone regex with inline error.
+- SEO: metadataBase in root layout, OG tags on home page, JSON-LD LodgingBusiness on listing detail.
+- A11Y: aria-labels on search bar and booking date inputs, scope=col on admin disputes table.
+
+**Mobile (Expo SDK 52):**
+- MOB-1: Favorites tab with FlatList + remove heart.
+- MOB-2: Notifications screen with mark-all-read.
+- MOB-3: Review form `/review/[bookingId]` with 6 star pickers.
+- MOB-4: Loyalty screen with tier card + progress bar + transaction history.
+- MOB-5: Saved searches with apply-filters navigation.
+- MOB-6: Newsletter one-shot subscribe card in profile.
+- Messaging: `/messages` tab (conversations list) + `/conversation/[id]` chat thread with socket.io-client WebSocket, optimistic send, read receipts.
+- Host dashboard: `/host/dashboard` (analytics), `/host/bookings` (confirm/decline), `/host/listings`.
+- Profile: HOST/ADMIN section with host screen links.
+- Root layout: 8 new stack screens registered.
+
+**TypeScript:** 0 new errors in any created/modified file.
+
+**Commit:** `fcf4fae` — feat(sprint15) — pushed to GitHub, awaiting production deploy.
+
+### Status as of 2026-03-12 (post Sprint 15)
+
+- Production: git pull + `docker compose up -d --build` pending (user to run manually).
+- Mobile: ~95% complete — only external integrations (payments/push/OAuth/EAS) remain.
+- Next: Sprint 16 (external integrations block).
+
+---
 
 ## 8. Validation Log (2026-03-12)
 
