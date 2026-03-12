@@ -3,9 +3,10 @@ import { ReviewsController } from './reviews.controller';
 import { ReviewsService } from './reviews.service';
 import { AiSearchModule } from '../ai-search/ai-search.module';
 import { UsersModule } from '../users/users.module';
+import { CacheModule } from '../cache/cache.module';
 
 @Module({
-  imports: [AiSearchModule, UsersModule],
+  imports: [AiSearchModule, UsersModule, CacheModule],
   controllers: [ReviewsController],
   providers: [ReviewsService],
 })

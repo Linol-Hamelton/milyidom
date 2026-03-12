@@ -1,10 +1,13 @@
 import { Controller, Get, Query } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { SearchService } from './search.service';
 
 @Controller('search')
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
+  // 60 search requests per minute per IP
+  @Throttle({ global: { ttl: 60_000, limit: 60 } })
   @Get('listings')
   searchListings(
     @Query('q') q = '',

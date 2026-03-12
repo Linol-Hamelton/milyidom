@@ -8,6 +8,7 @@ import {
   Res,
   UseGuards,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { IsArray, IsString, IsUrl } from 'class-validator';
 import { IcalService } from './ical.service';
@@ -31,15 +32,21 @@ export class IcalController {
   constructor(private readonly icalService: IcalService) {}
 
   /** Public: get iCal feed for a listing by token (no auth needed for calendar apps) */
+  // 100 req/min — allows calendar apps to poll frequently but limits abuse
+  @Throttle({ global: { ttl: 60_000, limit: 100 } })
   @Get('feed/:token')
   async getFeed(@Param('token') token: string, @Res() res: Response) {
-    const cal = await this.icalService.generateFeed(token);
-    res.set({
-      'Content-Type': 'text/calendar; charset=utf-8',
-      'Content-Disposition': 'attachment; filename="calendar.ics"',
-      'Cache-Control': 'no-store',
-    });
-    res.send(cal.toString());
+    try {
+      const cal = await this.icalService.generateFeed(token);
+      res.set({
+        'Content-Type': 'text/calendar; charset=utf-8',
+        'Content-Disposition': 'attachment; filename="calendar.ics"',
+        'Cache-Control': 'no-store',
+      });
+      res.send(cal.toString());
+    } catch {
+      res.status(404).send('Not found');
+    }
   }
 
   /** Host: get the iCal feed URL for their listing */

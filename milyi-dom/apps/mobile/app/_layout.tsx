@@ -35,6 +35,14 @@ export default function RootLayout() {
             name="booking/[id]"
             options={{ headerShown: true, title: 'Бронирование', presentation: 'modal' }}
           />
+          <Stack.Screen name="conversation/[id]" options={{ headerShown: false }} />
+          <Stack.Screen name="notifications" options={{ headerShown: false }} />
+          <Stack.Screen name="saved-searches" options={{ headerShown: false }} />
+          <Stack.Screen name="loyalty" options={{ headerShown: false }} />
+          <Stack.Screen name="review/[bookingId]" options={{ headerShown: false }} />
+          <Stack.Screen name="host/dashboard" options={{ headerShown: false }} />
+          <Stack.Screen name="host/bookings" options={{ headerShown: false }} />
+          <Stack.Screen name="host/listings" options={{ headerShown: false }} />
         </Stack>
       </QueryClientProvider>
     </GestureHandlerRootView>

@@ -9,6 +9,7 @@ import {
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { plainToInstance } from 'class-transformer';
 import { AuditAction, Role } from '@prisma/client';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -27,6 +28,8 @@ import { UpdateBookingStatusDto } from './dto/update-booking-status.dto';
 export class BookingsController {
   constructor(private readonly bookingsService: BookingsService) {}
 
+  // 10 booking attempts per minute — prevents booking spam/abuse
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
   @Audit(AuditAction.BOOKING_CREATE, 'booking')
   @Post()
   @UseGuards(JwtAuthGuard)

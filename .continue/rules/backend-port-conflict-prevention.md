@@ -1,11 +1,26 @@
----
+﻿---
 globs: |-
   **/docker-compose.yml
   **/package.json
-description: Prevents port conflicts by ensuring backend only runs in one
-  location at a time. Docker backend runs on port 4001, same as local
-  development backend.
+description: Prevent port conflicts by running backend in exactly one mode.
 alwaysApply: false
 ---
 
-Never run backend both in Docker and locally simultaneously. Choose one: either use docker-compose up -d for full Docker setup OR use docker-compose up -d db + pnpm start:dev for local backend development.
+Do not run backend in Docker and locally at the same time.
+
+Choose one mode:
+
+1. Full dockerized app backend:
+
+```bash
+docker compose up -d backend
+```
+
+2. Local backend with dockerized infra only:
+
+```bash
+docker compose up -d db redis typesense pgbouncer
+pnpm --filter backend dev
+```
+
+Both modes use backend port `4001`, so parallel launch causes bind/conflict and misleading test results.

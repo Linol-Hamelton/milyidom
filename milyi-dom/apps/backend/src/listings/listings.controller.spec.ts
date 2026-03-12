@@ -1,6 +1,7 @@
 import { ListingsController } from './listings.controller';
 import type { ListingsService } from './listings.service';
 import type { CreateListingDto } from './dto/create-listing.dto';
+import type { CurrentUser } from '../auth/types/current-user.type.js';
 
 describe('ListingsController', () => {
   it('forwards Idempotency-Key header to listings service on create', async () => {
@@ -9,7 +10,7 @@ describe('ListingsController', () => {
       create: createMock,
     } as unknown as ListingsService);
 
-    const user = { id: 'host-1' } as { id: string };
+    const user = { id: 'host-1' } as unknown as CurrentUser;
     const dto = { title: 'Тестовое объявление' } as unknown as CreateListingDto;
     const idempotencyKey = 'abc-123';
 

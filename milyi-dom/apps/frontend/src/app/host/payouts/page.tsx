@@ -32,6 +32,10 @@ function HostPayoutsContent() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!/^\+7[0-9]{10}$/.test(phone)) {
+      setError('Введите номер в формате +7XXXXXXXXXX (11 цифр после +7)');
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccess(false);
@@ -83,10 +87,11 @@ function HostPayoutsContent() {
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
             placeholder="+79991234567"
+            pattern="^\+7[0-9]{10}$"
             required
             className="w-full rounded-xl border border-slate-200 px-4 py-3 text-base outline-none focus:border-pine-500 focus:ring-2 focus:ring-pine-500/20"
           />
-          <p className="mt-1 text-xs text-slate-400">Формат: +7XXXXXXXXXX</p>
+          <p className="mt-1 text-xs text-slate-400">Формат: +7XXXXXXXXXX (10 цифр после +7)</p>
         </div>
 
         {error && (

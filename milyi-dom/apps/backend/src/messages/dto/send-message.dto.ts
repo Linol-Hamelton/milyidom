@@ -1,3 +1,4 @@
+import { Transform } from 'class-transformer';
 import { IsOptional, IsString, MaxLength, MinLength } from 'class-validator';
 
 export class SendMessageDto {
@@ -13,8 +14,9 @@ export class SendMessageDto {
   @IsString()
   recipientId?: string;
 
+  @Transform(({ value }: { value: string }) => value?.trim())
   @IsString()
   @MinLength(1)
-  @MaxLength(2000)
+  @MaxLength(5000)
   body!: string;
 }

@@ -260,9 +260,9 @@ export default function MessagesPage() {
     setLoading(true);
     try {
       const data = await fetchConversations();
-      setConversations(data);
-      if (data.length > 0 && !activeId) {
-        setActiveId(data[0].id);
+      setConversations(data.items);
+      if (data.items.length > 0 && !activeId) {
+        setActiveId(data.items[0].id);
       }
     } catch (error) {
       toast.error(parseError(error).message);

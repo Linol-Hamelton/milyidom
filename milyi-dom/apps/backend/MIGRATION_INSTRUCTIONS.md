@@ -1,37 +1,46 @@
-# Инструкции по миграции базы данных
+﻿# MIGRATION_INSTRUCTIONS
 
-## После изменений в схеме Prisma
+Prisma migration guide for backend.
 
-1. **Создание миграции:**
-   ```bash
-   pnpm prisma:migrate --name init
-   ```
+Last synchronized: **2026-03-04**.
 
-2. **Запуск миграции:**
-   ```bash
-   pnpm prisma:migrate deploy
-   ```
+## Development Flow
 
-3. **Генерация клиента Prisma:**
-   ```bash
-   pnpm prisma:generate
-   ```
+From workspace root `milyi-dom/`:
 
-4. **Заполнение тестовыми данными:**
-   ```bash
-   pnpm prisma:seed
-   ```
+```bash
+# generate client after schema edits
+pnpm --filter backend exec prisma generate
 
-## Команды для разработки
+# create + apply new migration locally
+pnpm --filter backend exec prisma migrate dev --name <migration_name>
+```
 
-- `pnpm prisma:generate` - генерация клиента Prisma
-- `pnpm prisma:migrate dev` - создание и применение миграции
-- `pnpm prisma:db push` - прямая синхронизация схемы (только для разработки)
-- `pnpm prisma:studio` - открытие Prisma Studio для просмотра данных
+## Production / Server Flow
 
-## Важно!
+```bash
+# apply existing committed migrations only
+pnpm --filter backend exec prisma migrate deploy
+```
 
-После изменений в `schema.prisma` всегда выполняйте:
-1. `pnpm prisma:generate`
-2. `pnpm prisma:migrate dev`
-3. `pnpm prisma:seed` (если нужно обновить тестовые данные)
+In dockerized server environment, use:
+
+```bash
+docker compose exec backend sh -c "cd /monorepo/apps/backend && npx prisma migrate deploy"
+```
+
+## Reset (Local only)
+
+Use only for local/dev databases:
+
+```bash
+pnpm --filter backend exec prisma migrate reset --force
+```
+
+## Best Practices
+
+1. Never edit an applied migration directory manually.
+2. Commit both schema and generated migration files together.
+3. Run `prisma generate` after any schema change.
+4. Verify app start after migration before pushing.
+5. Run seed only when needed for local testing.

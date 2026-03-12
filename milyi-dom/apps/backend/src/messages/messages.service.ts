@@ -6,6 +6,7 @@
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { SendMessageDto } from './dto/send-message.dto';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { AppGateway } from '../gateway/app.gateway';
 import { WS_EVENT } from '../gateway/gateway.types';
 
@@ -103,14 +104,36 @@ export class MessagesService {
     return message;
   }
 
-  async getConversations(userId: string) {
-    return this.prisma.conversation.findMany({
-      where: {
-        OR: [{ hostId: userId }, { guestId: userId }],
+  async getConversations(userId: string, pagination: PaginationDto = new PaginationDto()) {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.prisma.conversation.findMany({
+        where: {
+          OR: [{ hostId: userId }, { guestId: userId }],
+        },
+        orderBy: { updatedAt: Prisma.SortOrder.desc },
+        include: conversationSummaryInclude,
+        skip,
+        take: limit,
+      }),
+      this.prisma.conversation.count({
+        where: {
+          OR: [{ hostId: userId }, { guestId: userId }],
+        },
+      }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-      orderBy: { updatedAt: Prisma.SortOrder.desc },
-      include: conversationSummaryInclude,
-    });
+    };
   }
 
   async getMessages(conversationId: string, userId: string) {

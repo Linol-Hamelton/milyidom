@@ -4,9 +4,12 @@ import {
   Post,
   Delete,
   Param,
+  Query,
   UseGuards,
 } from '@nestjs/common';
+import { plainToInstance } from 'class-transformer';
 import { FavoritesService } from './favorites.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../common/guards/optional-jwt-auth.guard';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -18,8 +21,12 @@ export class FavoritesController {
 
   @Get()
   @UseGuards(JwtAuthGuard)
-  findAll(@CurrentUser() user: CurrentUserType) {
-    return this.favoritesService.findAll(user.id);
+  findAll(
+    @CurrentUser() user: CurrentUserType,
+    @Query() query: Record<string, unknown>,
+  ) {
+    const pagination = plainToInstance(PaginationDto, query);
+    return this.favoritesService.findAll(user.id, pagination);
   }
 
   @Get('count')

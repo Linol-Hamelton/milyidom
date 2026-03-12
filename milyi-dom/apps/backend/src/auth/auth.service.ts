@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmailQueueService } from '../queue/email-queue.service';
 import { RegisterDto } from './dto/register.dto';
@@ -59,22 +59,30 @@ export class AuthService {
 
     const hashedPassword = await hash(password, 12);
 
-    const user = await this.prisma.user.create({
-      data: {
-        email,
-        password: hashedPassword,
-        phone,
-        profile: {
-          create: {
-            firstName,
-            lastName,
+    let user: Prisma.UserGetPayload<{ include: { profile: true } }>;
+    try {
+      user = await this.prisma.user.create({
+        data: {
+          email,
+          password: hashedPassword,
+          phone,
+          profile: {
+            create: {
+              firstName,
+              lastName,
+            },
           },
         },
-      },
-      include: {
-        profile: true,
-      },
-    });
+        include: {
+          profile: true,
+        },
+      });
+    } catch (err) {
+      if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+        throw new ConflictException('Пользователь с таким email уже зарегистрирован');
+      }
+      throw err;
+    }
 
     const safeUser = this.sanitizeUser(user);
     const tokens = await this.generateTokens(safeUser);

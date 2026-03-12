@@ -1,6 +1,6 @@
 ﻿# Implementation Plan (Actual)
 
-Plan date: **2026-03-12** (updated from 2026-03-04).
+Plan date: **2026-03-12** (updated 2026-03-12 — Sprint 15 complete).
 
 This is the actionable plan based on the current codebase and production behavior.
 
@@ -9,9 +9,9 @@ This is the actionable plan based on the current codebase and production behavio
 The project is functionally advanced and operates as a production platform at https://milyidom.com.
 The main remaining work is:
 
-- mobile app completion (Sprint 14 focus),
+- mobile app completion (Sprint 14/15 — messaging + host dashboard mobile pending),
 - load test baseline capture against production,
-- newsletter backend integration,
+- external integrations block (Expo Push, YooKassa WebView, OAuth mobile, EAS Build),
 - ongoing security/compliance cadence.
 
 ## 2. Current Reality Snapshot (2026-03-12)
@@ -30,14 +30,16 @@ The main remaining work is:
 - Disputes system: full backend + frontend, deployed to production.
 - API timeout budgets: documented in `docs/API_TIMEOUTS.md`.
 - k6 load tests: `listings-search.js`, `booking-flow.js`, `messaging.js` — scripts ready, baselines not yet captured.
-- Mobile app: ~65% complete (auth, listings browse, bookings, profile done; payments/messaging/push pending).
+- Mobile app: ~85% complete (auth, listings, bookings, profile, favorites, notifications, reviews, loyalty, saved searches, newsletter done; messaging WebSocket + host dashboard + payments/push/OAuth pending).
 
 ### Still Pending
 
 - Load test baseline numbers against production (run k6 scripts, record P95 values).
-- Newsletter backend API wiring (frontend component has TODO).
-- Mobile: payments (YooKassa WebView), messaging (WebSocket), push notifications.
+- Mobile: messaging (WebSocket — `app/conversation/[id].tsx`), host dashboard screens.
+- Mobile external integrations: payments (YooKassa WebView), push notifications (Expo Push API), OAuth (Google/VK).
 - EAS Build configuration for TestFlight / Google Play internal track.
+- `prisma migrate deploy` on production server for 11 new indexes added to schema.prisma.
+- Rotate Yandex Cloud static key `YCAJEeqPtUVt_Ru5w2DAoJdOq`.
 
 ## 3. Stage Completion and Partial Deficits
 
@@ -158,17 +160,7 @@ Definition of done:
 
 ### MEDIUM PRIORITY
 
-#### 4. Host Dashboard Mobile Screens
-
-- `app/(host)/dashboard.tsx` — earnings summary, active bookings count, pending bookings.
-- `app/(host)/bookings.tsx` — list of incoming bookings with confirm/decline actions.
-- `app/(host)/listings.tsx` — host's listing list with status indicators.
-- Guard: redirect non-HOST users to profile tab.
-
-Definition of done:
-- Host can view and act on incoming bookings from mobile.
-
-#### 5. OAuth Login Mobile (Expo AuthSession)
+#### 4. OAuth Login Mobile (Expo AuthSession)
 
 - Google OAuth: `expo-auth-session` with `Google.useAuthRequest`.
 - VK OAuth: custom `WebBrowser.openAuthSessionAsync` flow (VK does not support PKCE well).
@@ -178,7 +170,7 @@ Definition of done:
 Definition of done:
 - User can sign in with Google account on mobile.
 
-#### 6. EAS Build Configuration for TestFlight
+#### 5. EAS Build Configuration for TestFlight
 
 - Add `eas.json` with `development`, `preview`, `production` profiles.
 - Configure `app.json`: `bundleIdentifier` (iOS), `package` (Android).
@@ -190,21 +182,31 @@ Definition of done:
 
 ### LOWER PRIORITY
 
-#### 7. Reviews Mobile Screen
+#### 6. Reviews Mobile Screen
 
 - Show reviews list on listing detail screen (already has placeholder).
 - Add "Leave a Review" form after completed booking.
 - `POST /api/reviews` with `listingId`, `bookingId`, `rating`, `comment`.
 
-#### 8. Favorites Mobile Screen
+#### 7. Favorites Mobile Screen
 
 - Heart button on listing cards and detail → `POST /api/favorites/:listingId` toggle.
 - `app/(tabs)/favorites.tsx` — saved listings grid.
 
-#### 9. Loyalty Points Mobile Display
+#### 8. Loyalty Points Mobile Display
 
 - Add loyalty points balance to profile tab.
 - `GET /api/loyalty/balance` → display points + tier badge.
+
+#### 9. Host Dashboard Mobile Screens
+
+- `app/(host)/dashboard.tsx` — earnings summary, active bookings count, pending bookings.
+- `app/(host)/bookings.tsx` — list of incoming bookings with confirm/decline actions.
+- `app/(host)/listings.tsx` — host's listing list with status indicators.
+- Guard: redirect non-HOST users to profile tab.
+
+Definition of done:
+- Host can view and act on incoming bookings from mobile.
 
 ---
 
@@ -215,9 +217,12 @@ Definition of done:
 | Push notifications | Push received on booking confirm + new message |
 | YooKassa WebView | Payment completes in-app, booking status updates |
 | Messaging + WebSocket | Real-time chat works, unread badge shown |
-| Host dashboard | Host can confirm/decline bookings from mobile |
 | OAuth login | Google sign-in works end-to-end |
 | EAS Build | `.ipa` available on TestFlight |
+| Reviews | Review form after completed booking |
+| Favorites | Heart toggle + favorites tab |
+| Loyalty points | Balance visible on profile tab |
+| Host dashboard | Host can confirm/decline bookings from mobile |
 
 ## 6. Tracking Template
 

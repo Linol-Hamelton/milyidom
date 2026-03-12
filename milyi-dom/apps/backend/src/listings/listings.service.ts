@@ -479,6 +479,8 @@ export class ListingsService {
 
     void this.searchService.indexListing(this.toSearchDocument(listing));
     void this.cacheService.del('listings:all');
+    void this.cacheService.del(`listings:id:${listingId}`);
+    void this.cacheService.del(`listings:slug:${listing.slug}`);
 
     return this.serializeListing(listing);
   }
@@ -499,29 +501,41 @@ export class ListingsService {
   }
 
   async findOne(id: string) {
-    const listing = await this.prisma.listing.findUnique({
-      where: { id },
-      include: BASE_INCLUDE,
-    });
+    return this.cacheService.wrap(
+      `listings:id:${id}`,
+      async () => {
+        const listing = await this.prisma.listing.findUnique({
+          where: { id },
+          include: BASE_INCLUDE,
+        });
 
-    if (!listing) {
-      throw new NotFoundException('РћР±СЉСЏРІР»РµРЅРёРµ РЅРµ РЅР°Р№РґРµРЅРѕ');
-    }
+        if (!listing) {
+          throw new NotFoundException('Объявление не найдено');
+        }
 
-    return this.serializeListing(listing);
+        return this.serializeListing(listing);
+      },
+      300,
+    );
   }
 
   async findBySlug(slug: string) {
-    const listing = await this.prisma.listing.findUnique({
-      where: { slug },
-      include: BASE_INCLUDE,
-    });
+    return this.cacheService.wrap(
+      `listings:slug:${slug}`,
+      async () => {
+        const listing = await this.prisma.listing.findUnique({
+          where: { slug },
+          include: BASE_INCLUDE,
+        });
 
-    if (!listing) {
-      throw new NotFoundException('РћР±СЉСЏРІР»РµРЅРёРµ РЅРµ РЅР°Р№РґРµРЅРѕ');
-    }
+        if (!listing) {
+          throw new NotFoundException('Объявление не найдено');
+        }
 
-    return this.serializeListing(listing);
+        return this.serializeListing(listing);
+      },
+      300,
+    );
   }
 
   async getFeaturedListings(limit = 8) {
@@ -717,6 +731,9 @@ export class ListingsService {
     });
 
     void this.searchService.indexListing(this.toSearchDocument(listing));
+    void this.cacheService.del('listings:all');
+    void this.cacheService.del(`listings:id:${listingId}`);
+    void this.cacheService.del(`listings:slug:${listing.slug}`);
 
     return this.serializeListing(listing);
   }
@@ -731,6 +748,8 @@ export class ListingsService {
     });
     void this.searchService.deleteListing(listingId);
     void this.cacheService.del('listings:all');
+    void this.cacheService.del(`listings:id:${listingId}`);
+    void this.cacheService.del(`listings:slug:${listing.slug}`);
     return this.serializeListing(listing);
   }
 

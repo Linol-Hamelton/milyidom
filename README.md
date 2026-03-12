@@ -1,178 +1,145 @@
-# Милый Дом — Платформа аренды жилья №1
+﻿# Milyi Dom
 
-> Превосходим Airbnb и Booking по качеству, UX, безопасности и AI-функциям.
+Monorepo for the Milyi Dom rental platform.
 
-**Стек:** NestJS 11 · Next.js 15 · PostgreSQL 16 + PostGIS · Stripe · Redis · Typesense · Socket.io · Expo · Docker
-**Готовность:** ~72% (Фазы 0-2 завершены — см. [ROADMAP.md](ROADMAP.md))
-**Статус безопасности:** 🟡 Критических уязвимостей нет. Следующий приоритет: PII шифрование + GDPR
+Last synchronized with codebase: **2026-03-04**.
 
----
+## Current Product State
 
-## Структура репозитория
+- Delivery stage: **production beta**.
+- Core web roles are implemented: `GUEST`, `HOST`, `ADMIN`.
+- Main API and UI flows are functional, including:
+  - authentication (password, OAuth, 2FA),
+  - listings/search/favorites,
+  - bookings and payments,
+  - messaging,
+  - host dashboard/listings/payout settings,
+  - admin sections.
+- Critical regressions from the latest QA cycle were fixed (route guards, messaging send flow, listing create duplicate risk, favorites price display, decimal coordinates input).
+- Remaining work and priorities: see [plans.md](plans.md).
 
-```
+## Repository Layout
+
+```text
 newhome/
-├── milyi-dom/                # Основное приложение (pnpm workspace)
+├── milyi-dom/                        # pnpm workspace
 │   ├── apps/
-│   │   ├── backend/          # NestJS 11 API (Port 4001)
-│   │   ├── frontend/         # Next.js 15 App Router (Port 3000)
-│   │   └── mobile/           # Expo SDK 52 (React Native)
-│   ├── docker-compose.yml    # Полный production стек
-│   ├── prometheus.yml        # Prometheus конфигурация
-│   └── package.json          # pnpm workspace root
-├── ROADMAP.md                # 18-месячный план к лидерству на рынке
-├── ARCHITECTURE.md           # Техническая архитектура + ADRs
-└── SECURITY.md               # Требования безопасности (PCI DSS, GDPR, ФЗ-152)
+│   │   ├── backend/                  # NestJS API
+│   │   ├── frontend/                 # Next.js web app
+│   │   └── mobile/                   # Expo app
+│   ├── docker-compose.yml
+│   ├── prometheus.yml
+│   └── package.json
+├── README.md
+├── ARCHITECTURE.md
+├── ROADMAP.md
+├── SECURITY.md
+├── plans.md
+├── DEPLOY.md
+├── DEPLOY_FASTPANEL.md
+└── milyi-dom/SETUP_INSTRUCTIONS.md
 ```
 
-## Быстрый старт (Docker — рекомендуется)
+## Stack (Actual)
+
+- Backend: NestJS 11, Prisma 6, PostgreSQL 16 + PostGIS
+- Frontend: Next.js 15 (App Router), React 18
+- Mobile: Expo SDK 52
+- Infra: Docker Compose, PgBouncer, Redis, Typesense
+- Realtime: Socket.IO
+- Payments: Stripe
+- Monitoring: Prometheus + Grafana
+
+## Quick Start (Docker)
 
 ```bash
 cd milyi-dom
-
-# Запустить весь стек одной командой
 docker compose up -d
-
-# Сервисы будут доступны на:
-# Frontend:    http://localhost:3000
-# Backend API: http://localhost:4001/api
-# Grafana:     http://localhost:3001  (admin / milyi-dom-grafana)
-# Prometheus:  http://localhost:9090
-# Typesense:   http://localhost:8108
 ```
 
-## Быстрый старт (локальная разработка)
+Local service ports from the current `docker-compose.yml`:
+
+- Frontend: `http://127.0.0.1:3002`
+- Backend API: `http://127.0.0.1:4001/api`
+- PostgreSQL: `127.0.0.1:5432`
+- PgBouncer: `127.0.0.1:5433`
+- Redis: `127.0.0.1:6380`
+- Typesense: `127.0.0.1:8108`
+- Prometheus: `127.0.0.1:9090`
+- Grafana: `127.0.0.1:3003`
+
+## Quick Start (Local Development)
 
 ```bash
-# 1. Инфраструктура
 cd milyi-dom
+pnpm install
+
+# infrastructure only
 docker compose up -d db redis typesense pgbouncer
 
-# 2. Backend
-cd apps/backend
-cp .env.example .env        # Заполнить переменные
-npx pnpm install
-npx prisma migrate deploy --schema=prisma/schema.prisma
-npx pnpm start:dev          # http://localhost:4001
+# backend
+pnpm --filter backend dev
 
-# 3. Frontend (в другом терминале)
-cd apps/frontend
-cp .env.example .env.local  # Заполнить NEXT_PUBLIC_MAPBOX_TOKEN и др.
-npx pnpm install
-npx pnpm dev                # http://localhost:3000
-
-# 4. Mobile (опционально)
-cd apps/mobile
-npx pnpm install
-npx expo start
+# frontend (new terminal)
+pnpm --filter frontend dev
 ```
 
-## Технологический стек
+## Testing
 
-| Слой | Технология | Версия | Статус |
-|------|-----------|--------|--------|
-| Backend | NestJS | 11.x | ✅ |
-| Frontend | Next.js (App Router) | 15.x | ✅ |
-| Mobile | Expo (React Native) | SDK 52 | ✅ MVP |
-| Database | PostgreSQL + PostGIS | 16 + 3.4 | ✅ |
-| ORM | Prisma | 6.x | ✅ |
-| Connection Pool | PgBouncer | latest | ✅ |
-| Auth | JWT + Passport + 2FA + OAuth | — | ✅ |
-| Payments | Stripe SDK + Connect | 18.x | ✅ |
-| Search | Typesense | 26 | ✅ |
-| AI | Claude API (Anthropic) | Haiku | ✅ |
-| Real-time | Socket.io | 4.x | ✅ |
-| Queue | BullMQ + Redis | 7.x | ✅ |
-| Email | Nodemailer + SMTP | — | ✅ |
-| Styling | Tailwind CSS | 3.x | ✅ |
-| State | Zustand + SWR | — | ✅ |
-| Map | MapBox GL | — | ✅ |
-| PWA | sw.js + manifest | — | ✅ |
-| Monitoring | Prometheus + Grafana | — | ✅ |
-| Error tracking | Sentry | — | ✅ |
-| CI/CD | GitHub Actions | — | ✅ |
-| Containerization | Docker Compose | — | ✅ |
+Current targeted automated tests in repository:
 
-## Ключевые функции
+- Backend specs: `3`
+- Frontend tests: `5`
 
-### Для гостей
-- **AI Smart Search** — поиск на естественном языке ("уютная квартира у моря для двоих")
-- **Map-first интерфейс** — MapBox GL с ценами на маркерах, 3 вида (список/карта/split)
-- **Полный booking flow** — бронирование → Stripe оплата → подтверждение по email
-- **Real-time чат** — WebSocket мессенджер с хостами
-- **AI-резюме отзывов** — Claude суммаризирует все отзывы по объявлению
-- **Push уведомления** — в браузере (PWA) и в мобильном приложении
-- **OAuth** — вход через Google или VK
-- **2FA** — TOTP (Google Authenticator)
+Run:
 
-### Для хостов
-- **Аналитика** — 12-месячная выручка, occupancy rate, per-listing stats
-- **iCal синхронизация** — синхронизация с Airbnb, VRBO, Google Calendar
-- **Stripe Connect** — быстрые выплаты с историей транзакций
-- **Блокировка дат** — ручная и через iCal
-- **Управление объявлениями** — статусы, фото, описания
-
-### Безопасность
-- IDOR защита на всех endpoints
-- Rate limiting (100 req/min)
-- Helmet.js HTTP headers
-- Stripe webhook HMAC верификация
-- Audit log всех критических операций
-- bcrypt cost=12 для паролей
-
-## Переменные среды
-
-### Backend (apps/backend/.env)
 ```bash
-DATABASE_URL=postgresql://postgres:postgres@localhost:5432/milyi_dom
-DIRECT_DATABASE_URL=postgresql://postgres:postgres@localhost:5432/milyi_dom
-JWT_SECRET=<min 32 chars>
-JWT_REFRESH_SECRET=<min 32 chars>
-STRIPE_SECRET_KEY=sk_test_...
-ANTHROPIC_API_KEY=<для AI функций>
-TYPESENSE_API_KEY=milyi-dom-typesense-dev-key
-SMTP_HOST=smtp.resend.com
-SMTP_PASS=<Resend API key>
-GOOGLE_CLIENT_ID=<для OAuth>
-VK_CLIENT_ID=<для OAuth>
+cd milyi-dom
+pnpm --filter backend test
+pnpm --filter frontend test
 ```
 
-### Frontend (apps/frontend/.env.local)
+If `pnpm` is not available in shell `PATH`, use:
+
 ```bash
-NEXT_PUBLIC_API_URL=http://localhost:4001/api
-NEXT_PUBLIC_WS_URL=http://localhost:4001
-NEXT_PUBLIC_MAPBOX_TOKEN=<обязателен для карты>
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_...
+corepack pnpm --filter backend test
+corepack pnpm --filter frontend test -- --run
+corepack pnpm --filter backend exec npx tsc --noEmit --skipLibCheck
+corepack pnpm --filter frontend exec npx tsc --noEmit --skipLibCheck
 ```
 
-## Документация
+## Regression Protocol (Feature Work)
 
-- **[ROADMAP.md](ROADMAP.md)** — 18-месячный план, текущий прогресс, следующие приоритеты
-- **[ARCHITECTURE.md](ARCHITECTURE.md)** — технические решения, схема БД, ADRs
-- **[SECURITY.md](SECURITY.md)** — требования безопасности (PCI DSS, GDPR, ФЗ-152)
-- **[milyi-dom/plans.md](milyi-dom/plans.md)** — детальные планы по фазам разработки
+For each feature fix or new implementation:
 
-## Статус сервисов (Docker)
+1. Run backend and frontend regression tests.
+2. Run backend and frontend TypeScript checks.
+3. Update [plans.md](plans.md) validation log with executed commands and outcomes.
+4. Re-check protected routes and role-based behavior if auth-sensitive code changed.
 
-| Сервис | Порт | Назначение |
-|--------|------|-----------|
-| Frontend | 3000 | Next.js SSR приложение |
-| Backend | 4001 | NestJS REST API + WebSocket |
-| PostgreSQL | 5432 | Основная БД + PostGIS |
-| PgBouncer | 5433 | Connection pooling |
-| Redis | 6379 | Cache + BullMQ очереди |
-| Typesense | 8108 | Full-text поиск |
-| Prometheus | 9090 | Метрики |
-| Grafana | 3001 | Дашборды (admin/milyi-dom-grafana) |
+## Environment Files
 
-## Release Update 2026-03-04
+- Backend template: `milyi-dom/apps/backend/.env.example`
+- Frontend template: `milyi-dom/apps/frontend/.env.example`
 
-Stability and security fixes delivered:
-- Fixed protected flow around host bookings page rendering: no host API call before role guard allows content.
-- Hardened realtime chat client socket endpoint resolution for production environments.
-- Hardened /messages send action to avoid duplicate submits and ensure click-triggered send path.
-- Improved mobile responsiveness of listings view-mode controls (no horizontal overflow on narrow screens).
-- Listing creation path remains protected by idempotency key support and extended frontend timeout.
-- Favorites and coordinates validation regressions remain covered by tests.
+## Documentation Index
 
-Canonical deployment and smoke-check steps are documented in [DEPLOY_CANONICAL_2026-03-04.md](DEPLOY_CANONICAL_2026-03-04.md).
+- [ARCHITECTURE.md](ARCHITECTURE.md): current system architecture and constraints.
+- [ROADMAP.md](ROADMAP.md): delivery roadmap from current baseline.
+- [SECURITY.md](SECURITY.md): implemented controls and open security backlog.
+- [plans.md](plans.md): prioritized implementation plan for remaining work.
+- [DEPLOY.md](DEPLOY.md): full deployment and operations guide.
+- [DEPLOY_FASTPANEL.md](DEPLOY_FASTPANEL.md): FastPanel-specific production notes.
+- [milyi-dom/SETUP_INSTRUCTIONS.md](milyi-dom/SETUP_INSTRUCTIONS.md): setup guide for local development.
+
+## Release Note (2026-03-04)
+
+Latest merged stabilization changes include:
+
+- Host payouts page guard enforcement (`HOST`/`ADMIN` only).
+- Host bookings RBAC alignment for backend controller metadata.
+- Messaging send flow fix in `/messages` (no silent no-op on submit).
+- Listing creation hardening with idempotency key support and longer request timeout.
+- Favorites price formatting fix (numeric value handling).
+- Decimal coordinate support in listing form (`latitude`/`longitude` step validation).
+- Responsive improvements in listing controls on narrow screens.

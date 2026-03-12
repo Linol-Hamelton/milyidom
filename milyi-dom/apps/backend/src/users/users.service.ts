@@ -4,12 +4,16 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { CacheService } from '../cache/cache.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { UpdateMeDto } from './dto/update-me.dto';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private readonly cacheService: CacheService,
+  ) {}
 
   async findMe(userId: string) {
     const user = await this.prisma.user.findUnique({
@@ -160,41 +164,45 @@ export class UsersService {
   }
 
   async getTopHosts(limit: number = 10) {
-    return this.prisma.user.findMany({
-      where: {
-        role: 'HOST',
-        isSuperhost: true,
-        isVerified: true,
-      },
-      include: {
-        profile: true,
-        listings: {
-          where: { status: 'PUBLISHED' },
-          include: {
-            images: {
-              where: { isPrimary: true },
-              take: 1,
+    return this.cacheService.wrap(
+      `users:top-hosts:${limit}`,
+      () => this.prisma.user.findMany({
+        where: {
+          role: 'HOST',
+          isSuperhost: true,
+          isVerified: true,
+        },
+        include: {
+          profile: true,
+          listings: {
+            where: { status: 'PUBLISHED' },
+            include: {
+              images: {
+                where: { isPrimary: true },
+                take: 1,
+              },
+              reviews: {
+                take: 5,
+              },
             },
-            reviews: {
-              take: 5,
+          },
+          reviews: {
+            where: {
+              listing: {
+                hostId: { not: undefined },
+              },
             },
           },
         },
-        reviews: {
-          where: {
-            listing: {
-              hostId: { not: undefined },
-            },
+        orderBy: {
+          reviews: {
+            _count: 'desc',
           },
         },
-      },
-      orderBy: {
-        reviews: {
-          _count: 'desc',
-        },
-      },
-      take: limit,
-    });
+        take: limit,
+      }),
+      3600,
+    );
   }
 
   async getUserStats(userId: string) {

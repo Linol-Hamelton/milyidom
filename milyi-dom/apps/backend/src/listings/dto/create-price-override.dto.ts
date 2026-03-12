@@ -1,4 +1,4 @@
-import { IsDateString, IsNumber, IsString, MaxLength, Min } from 'class-validator';
+import { IsDateString, IsNumber, IsString, Max, MaxLength, Min } from 'class-validator';
 
 export class CreatePriceOverrideDto {
   @IsString()
@@ -13,5 +13,6 @@ export class CreatePriceOverrideDto {
 
   @IsNumber()
   @Min(100)
+  @Max(10_000_000)
   price!: number;
 }

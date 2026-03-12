@@ -20,10 +20,20 @@ const serif = Playfair_Display({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://milyidom.com'),
   title: 'Милый Дом — аренда жилья',
   description:
     'Милый Дом — сервис аренды жилья. Найдите идеальное место для отдыха: проверенные хосты, честные цены, заботливый сервис.',
   manifest: '/manifest.json',
+  openGraph: {
+    siteName: 'Милый Дом',
+    locale: 'ru_RU',
+    type: 'website',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    site: '@milyidom',
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',

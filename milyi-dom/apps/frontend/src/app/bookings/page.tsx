@@ -76,12 +76,19 @@ export default function BookingsPage() {
 
   const handleCancel = async (id: string) => {
     if (!confirm('Вы уверены, что хотите отменить бронирование?')) return;
-    
+
+    // Optimistic update
+    const snapshot = bookings;
+    setBookings((prev) =>
+      prev.map((b) => (b.id === id ? { ...b, status: 'CANCELLED' as const } : b)),
+    );
+
     try {
       await cancelBooking(id);
       toast.success('Бронирование отменено');
       await loadBookings(page);
     } catch (error) {
+      setBookings(snapshot);
       const { message } = parseError(error);
       toast.error(message);
     }

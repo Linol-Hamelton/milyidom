@@ -9,7 +9,20 @@ export interface LoyaltyAccount {
   nextTier: { tier: LoyaltyTier; pointsNeeded: number } | null;
 }
 
+export interface LoyaltyTransaction {
+  id: string;
+  type: 'EARN' | 'REDEEM' | 'EXPIRE' | 'BONUS';
+  points: number;
+  description: string;
+  createdAt: string;
+}
+
 export const fetchLoyaltyBalance = async (): Promise<LoyaltyAccount> => {
   const { data } = await apiClient.get<LoyaltyAccount>('/loyalty/me');
+  return data;
+};
+
+export const fetchLoyaltyHistory = async (limit = 20): Promise<LoyaltyTransaction[]> => {
+  const { data } = await apiClient.get<LoyaltyTransaction[]>(`/loyalty/history?limit=${limit}`);
   return data;
 };

@@ -69,7 +69,15 @@ export function CompactFilters({ amenities, initialFilters, onApply }: CompactFi
     });
   };
 
+  const [priceError, setPriceError] = useState<string | null>(null);
+
   const applyAdvanced = () => {
+    const { minPrice, maxPrice } = advancedFilters;
+    if (minPrice !== undefined && maxPrice !== undefined && minPrice > maxPrice) {
+      setPriceError('Минимальная цена не может быть больше максимальной');
+      return;
+    }
+    setPriceError(null);
     const next = { ...filters, ...advancedFilters, page: 1 };
     setFilters(next);
     onApply(next);
@@ -398,6 +406,9 @@ export function CompactFilters({ amenities, initialFilters, onApply }: CompactFi
             </div>
 
             <div className="mt-6 flex gap-3">
+              {priceError && (
+                <p className="col-span-2 text-xs text-red-600">{priceError}</p>
+              )}
               <button
                 type="button"
                 onClick={resetAdvanced}

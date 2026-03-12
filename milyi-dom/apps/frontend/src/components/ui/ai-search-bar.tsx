@@ -49,6 +49,7 @@ export function AiSearchBar({ onSearch, className = '' }: AiSearchBarProps) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder='Попробуйте: "уютный домик у горного озера на 4 человека"'
+            aria-label="Поиск жилья"
             className="w-full rounded-2xl border border-pine-200 bg-white py-3 pl-9 pr-4 text-sm text-slate-800 shadow-sm outline-none ring-pine-200 transition placeholder:text-slate-400 focus:border-pine-400 focus:ring-2"
             disabled={loading}
           />
@@ -56,6 +57,7 @@ export function AiSearchBar({ onSearch, className = '' }: AiSearchBarProps) {
         <button
           type="submit"
           disabled={loading || !query.trim()}
+          aria-label="Найти"
           className="shrink-0 rounded-2xl bg-pine-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-pine-500 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {loading ? (

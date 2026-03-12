@@ -13,6 +13,7 @@ import { Card, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
+import { Skeleton } from "../ui/skeleton";
 import {
   fetchListing,
   fetchListingStats,
@@ -459,8 +460,22 @@ export function ListingDetailClient({ listingId }: ListingDetailClientProps) {
 
   if (loading) {
     return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="h-12 w-12 animate-spin rounded-full border-2 border-pine-600 border-t-transparent" />
+      <div className="mx-auto max-w-content-lg px-4 py-8 sm:px-6 lg:px-10">
+        {/* Photo grid skeleton */}
+        <Skeleton className="mb-6 h-[400px] w-full rounded-3xl" />
+        <div className="grid gap-10 lg:grid-cols-[1fr_380px]">
+          <div className="space-y-6">
+            <Skeleton className="h-10 w-3/4 rounded-xl" />
+            <Skeleton className="h-5 w-1/2 rounded-lg" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
+            <Skeleton className="h-24 w-full rounded-2xl" />
+            <Skeleton className="h-48 w-full rounded-2xl" />
+          </div>
+          <div className="space-y-4">
+            <Skeleton className="h-64 w-full rounded-3xl" />
+            <Skeleton className="h-12 w-full rounded-xl" />
+          </div>
+        </div>
       </div>
     );
   }

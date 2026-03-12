@@ -1,8 +1,15 @@
 ﻿import { api } from '../lib/api-client';
 import type { Conversation, Message } from '../types/api';
 
-export async function fetchConversations() {
-  const { data } = await api.get<Conversation[]>('/messages/conversations');
+interface ConversationsResponse {
+  items: Conversation[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export async function fetchConversations(page = 1, limit = 20) {
+  const { data } = await api.get<ConversationsResponse>('/messages/conversations', {
+    params: { page, limit },
+  });
   return data;
 }
 

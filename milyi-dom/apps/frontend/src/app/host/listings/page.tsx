@@ -6,6 +6,7 @@ import toast from 'react-hot-toast';
 import { RequireAuth } from '../../../components/ui/require-auth';
 import { Button, buttonClassName } from '../../../components/ui/button';
 import { Skeleton } from '../../../components/ui/skeleton';
+import { Pagination } from '../../../components/ui/pagination';
 import { fetchHostListings, updateListingStatus, deleteListing } from '../../../services/listings';
 import type { Listing } from '../../../types/api';
 import { parseError } from '../../../lib/api-client';
@@ -17,15 +18,21 @@ const STATUS_LABELS: Record<Listing['status'], string> = {
   UNLISTED: 'Снято с публикации',
 };
 
+const PAGE_LIMIT = 12;
+
 export default function HostListingsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const loadListings = async () => {
+  const loadListings = async (nextPage = 1) => {
     setLoading(true);
     try {
-      const data = await fetchHostListings({ limit: 50 });
+      const data = await fetchHostListings({ page: nextPage, limit: PAGE_LIMIT });
       setListings(data.items);
+      setTotal(data.meta.total);
+      setPage(data.meta.page);
     } catch (error) {
       const { message } = parseError(error);
       toast.error(message);
@@ -38,12 +45,17 @@ export default function HostListingsPage() {
     loadListings();
   }, []);
 
+  const totalPages = Math.max(Math.ceil(total / PAGE_LIMIT), 1);
+
   const handleStatusChange = async (listingId: string, status: Listing['status']) => {
+    const snapshot = listings;
+    setListings((prev) => prev.map((l) => (l.id === listingId ? { ...l, status } : l)));
+
     try {
       await updateListingStatus(listingId, status);
       toast.success('Статус обновлён');
-      await loadListings();
     } catch (error) {
+      setListings(snapshot);
       const { message } = parseError(error);
       toast.error(message);
     }
@@ -54,7 +66,7 @@ export default function HostListingsPage() {
     try {
       await deleteListing(listingId);
       toast.success('Объявление удалено');
-      await loadListings();
+      await loadListings(page);
     } catch (error) {
       const { message } = parseError(error);
       toast.error(message);
@@ -93,6 +105,7 @@ export default function HostListingsPage() {
               className="mt-12"
             />
           ) : (
+            <>
             <div className="mt-10 grid gap-4 lg:grid-cols-2">
               {listings.map((listing) => (
                 <article key={listing.id} className="flex flex-col gap-3 rounded-3xl bg-white p-6 shadow-soft">
@@ -144,6 +157,17 @@ export default function HostListingsPage() {
                 </article>
               ))}
             </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              itemCount={listings.length}
+              itemLabel="объявлений"
+              loading={loading}
+              onPrev={() => loadListings(page - 1)}
+              onNext={() => loadListings(page + 1)}
+            />
+            </>
           )}
         </div>
       </div>

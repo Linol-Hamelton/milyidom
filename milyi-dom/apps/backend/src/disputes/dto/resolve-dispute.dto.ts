@@ -1,4 +1,4 @@
-import { IsString, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsOptional, IsEnum, MaxLength } from 'class-validator';
 import { DisputeStatus } from '@prisma/client';
 
 export class ResolveDisputeDto {
@@ -7,5 +7,6 @@ export class ResolveDisputeDto {
 
   @IsString()
   @IsOptional()
+  @MaxLength(2000)
   adminNotes?: string;
 }

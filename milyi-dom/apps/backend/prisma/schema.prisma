@@ -90,6 +90,11 @@ model User {
   disputes         Dispute[]      @relation("UserDisputes")
   createdAt        DateTime       @default(now())
   updatedAt        DateTime       @updatedAt
+
+  @@index([role])
+  @@index([createdAt])
+  @@index([isVerified])
+  @@index([isSuperhost])
 }
 
 model Profile {
@@ -212,6 +217,8 @@ model PropertyImage {
   isPrimary   Boolean  @default(false)
   listing     Listing  @relation(fields: [listingId], references: [id])
   createdAt   DateTime @default(now())
+
+  @@index([listingId, isPrimary])
 }
 
 model Booking {
@@ -273,6 +280,9 @@ model Review {
   // Admin moderation
   isHidden      Boolean  @default(false)
   createdAt     DateTime @default(now())
+
+  @@index([isFeatured])
+  @@index([listingId, isHidden])
 }
 
 model Payment {
@@ -288,6 +298,9 @@ model Payment {
   booking    Booking       @relation(fields: [bookingId], references: [id])
   createdAt  DateTime      @default(now())
   updatedAt  DateTime      @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 model Conversation {
@@ -316,6 +329,9 @@ model Message {
   conversation   Conversation @relation(fields: [conversationId], references: [id])
   sender         User         @relation("MessageSender", fields: [senderId], references: [id])
   recipient      User         @relation("MessageRecipient", fields: [recipientId], references: [id])
+
+  @@index([conversationId, sentAt])
+  @@index([recipientId, readAt])
 }
 
 model Notification {

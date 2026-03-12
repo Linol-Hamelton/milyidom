@@ -1,41 +1,59 @@
 import {
   Injectable,
   NotFoundException,
-  ConflictException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class FavoritesService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll(userId: string) {
-    return this.prisma.favorite.findMany({
-      where: { userId },
-      include: {
-        listing: {
-          include: {
-            host: {
-              include: {
-                profile: true,
+  async findAll(userId: string, pagination: PaginationDto = new PaginationDto()) {
+    const { page, limit } = pagination;
+    const skip = (page - 1) * limit;
+
+    const [items, total] = await Promise.all([
+      this.prisma.favorite.findMany({
+        where: { userId },
+        include: {
+          listing: {
+            include: {
+              host: {
+                include: {
+                  profile: true,
+                },
               },
-            },
-            images: {
-              take: 1,
-            },
-            amenities: {
-              include: {
-                amenity: true,
+              images: {
+                take: 1,
               },
-            },
-            reviews: {
-              take: 5,
+              amenities: {
+                include: {
+                  amenity: true,
+                },
+              },
+              reviews: {
+                take: 5,
+              },
             },
           },
         },
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take: limit,
+      }),
+      this.prisma.favorite.count({ where: { userId } }),
+    ]);
+
+    return {
+      items,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit),
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    };
   }
 
   async addToFavorites(userId: string, listingId: string) {
@@ -48,25 +66,19 @@ export class FavoritesService {
       throw new NotFoundException('Listing not found');
     }
 
-    // Check if already in favorites
-    const existingFavorite = await this.prisma.favorite.findUnique({
+    // Use upsert to avoid race condition on concurrent double-taps
+    const favorite = await this.prisma.favorite.upsert({
       where: {
         userId_listingId: {
           userId,
           listingId,
         },
       },
-    });
-
-    if (existingFavorite) {
-      throw new ConflictException('Listing already in favorites');
-    }
-
-    return this.prisma.favorite.create({
-      data: {
+      create: {
         userId,
         listingId,
       },
+      update: {},
       include: {
         listing: {
           include: {
@@ -82,6 +94,8 @@ export class FavoritesService {
         },
       },
     });
+
+    return favorite;
   }
 
   async removeFromFavorites(userId: string, listingId: string) {

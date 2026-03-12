@@ -2,13 +2,18 @@
 import { api } from "../lib/api-client";
 import type { Favorite } from "../types/api";
 
-export async function fetchFavorites() {
+interface FavoritesResponse {
+  items: Favorite[];
+  meta: { total: number; page: number; limit: number; totalPages: number };
+}
+
+export async function fetchFavorites(page = 1, limit = 20) {
   try {
-    const { data } = await api.get<Favorite[]>("/favorites");
+    const { data } = await api.get<FavoritesResponse>("/favorites", { params: { page, limit } });
     return data;
   } catch (error) {
     console.warn("Could not fetch favorites:", error);
-    return [];
+    return { items: [], meta: { total: 0, page: 1, limit, totalPages: 0 } };
   }
 }
 

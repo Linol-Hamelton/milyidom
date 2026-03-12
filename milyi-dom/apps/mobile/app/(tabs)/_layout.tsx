@@ -70,6 +70,24 @@ export default function TabsLayout() {
         }}
       />
       <Tabs.Screen
+        name="favorites"
+        options={{
+          title: 'Избранное',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'heart' : 'heart-outline'} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
+        name="messages"
+        options={{
+          title: 'Сообщения',
+          tabBarIcon: ({ focused }) => (
+            <TabIcon name={focused ? 'chatbubble' : 'chatbubble-outline'} focused={focused} />
+          ),
+        }}
+      />
+      <Tabs.Screen
         name="profile"
         options={{
           title: 'Профиль',

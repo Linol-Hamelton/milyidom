@@ -184,20 +184,24 @@ export function BookingPanel({ listing }: BookingPanelProps) {
       <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
         {/* Date inputs */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+          <label htmlFor="booking-checkin" className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Заезд
             <Input
+              id="booking-checkin"
               type="date"
               value={checkIn}
+              aria-label="Дата заезда"
               onChange={(e) => setCheckIn(e.target.value)}
               min={new Date().toISOString().split('T')[0]}
             />
           </label>
-          <label className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
+          <label htmlFor="booking-checkout" className="flex flex-col gap-1.5 text-sm font-medium text-slate-700">
             Выезд
             <Input
+              id="booking-checkout"
               type="date"
               value={checkOut}
+              aria-label="Дата выезда"
               onChange={(e) => setCheckOut(e.target.value)}
               min={getMinCheckOut()}
               max={getMaxCheckOut()}

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { RequireAuth } from '../../../components/ui/require-auth';
 import { Button } from '../../../components/ui/button';
 import { Skeleton } from '../../../components/ui/skeleton';
+import { Pagination } from '../../../components/ui/pagination';
 import { fetchHostBookings, updateBookingStatus } from '../../../services/bookings';
 import type { Booking } from '../../../types/api';
 import { parseError } from '../../../lib/api-client';
@@ -35,15 +36,21 @@ export default function HostBookingsPage() {
   );
 }
 
+const PAGE_LIMIT = 10;
+
 function HostBookingsContent() {
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
 
-  const loadBookings = async () => {
+  const loadBookings = async (nextPage = 1) => {
     setLoading(true);
     try {
-      const data = await fetchHostBookings({ limit: 50 });
+      const data = await fetchHostBookings({ page: nextPage, limit: PAGE_LIMIT });
       setBookings(data.items);
+      setTotal(data.meta.total);
+      setPage(data.meta.page);
     } catch (error) {
       const { message } = parseError(error);
       toast.error(message);
@@ -60,12 +67,14 @@ function HostBookingsContent() {
     try {
       await updateBookingStatus(bookingId, status);
       toast.success('Статус бронирования обновлён');
-      await loadBookings();
+      await loadBookings(page);
     } catch (error) {
       const { message } = parseError(error);
       toast.error(message);
     }
   };
+
+  const totalPages = Math.max(Math.ceil(total / PAGE_LIMIT), 1);
 
   return (
     <div className="bg-sand-50 py-12">
@@ -92,7 +101,7 @@ function HostBookingsContent() {
             className="mt-12"
           />
         ) : (
-          <div className="mt-10 space-y-4">
+          <div className="mt-10 space-y-4" data-testid="bookings-list">
             {bookings.map((booking) => (
               <article key={booking.id} className="rounded-3xl bg-white p-6 shadow-soft">
                 <div className="flex flex-wrap items-center justify-between gap-4">
@@ -145,6 +154,16 @@ function HostBookingsContent() {
                 )}
               </article>
             ))}
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              total={total}
+              itemCount={bookings.length}
+              itemLabel="бронирований"
+              loading={loading}
+              onPrev={() => loadBookings(page - 1)}
+              onNext={() => loadBookings(page + 1)}
+            />
           </div>
         )}
       </div>

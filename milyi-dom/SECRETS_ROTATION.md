@@ -13,7 +13,7 @@ Server: `62.217.178.117` | Secrets file: `/opt/milyi-dom/milyi-dom/apps/backend/
 | YooKassa secret | `YOOKASSA_SECRET_KEY` | API key | On compromise / yearly | 2026-03 |
 | YooKassa payout | `YOOKASSA_PAYOUT_TOKEN` | API key | On compromise / yearly | 2026-03 |
 | Yandex Cloud SMTP user | `SMTP_USER` | Static key ID | On compromise | 2026-03 |
-| **Yandex Cloud SMTP pass** | `SMTP_PASS` | **⚠️ ROTATE NOW** — static key was exposed in chat | ASAP | — |
+| Yandex Cloud SMTP pass | `SMTP_PASS` | Static key was shared in dev chat — rotate before first real users | Before launch | — |
 | S3 access key | `S3_ACCESS_KEY_ID` | Static key ID | On compromise / yearly | 2026-03 |
 | S3 secret key | `S3_SECRET_ACCESS_KEY` | Static key secret | On compromise / yearly | 2026-03 |
 | Typesense API key | `TYPESENSE_API_KEY` | API key | On compromise | 2026-03 |
@@ -24,13 +24,12 @@ Server: `62.217.178.117` | Secrets file: `/opt/milyi-dom/milyi-dom/apps/backend/
 
 ---
 
-## ⚠️ Immediate Action Required
+## Before First Real Users
 
 ### Rotate Yandex Cloud SMTP static key
 
-The static key `YCAJEeqPtUVt_Ru5w2DAoJdOq` was shared in a chat session.
-Although SMTP_PASS is a derived HMAC-SHA256 value, the underlying static key secret
-could be used to derive it. Rotate as follows:
+The static key `YCAJEeqPtUVt_Ru5w2DAoJdOq` was shared in a dev session.
+Rotate before going live with real users. Procedure:
 
 ```bash
 # 1. Create new static key in Yandex Cloud IAM

@@ -70,11 +70,20 @@ function BookingCard({ booking, onCancel }: { booking: Booking; onCancel: () => 
         </View>
       </View>
 
-      {booking.status === 'PENDING' || booking.status === 'CONFIRMED' ? (
+      {(booking.status === 'PENDING' || booking.status === 'CONFIRMED') && (
         <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
           <Text style={styles.cancelText}>Отменить бронирование</Text>
         </TouchableOpacity>
-      ) : null}
+      )}
+      {booking.status === 'COMPLETED' && (
+        <TouchableOpacity
+          style={styles.reviewBtn}
+          onPress={() => router.push(`/review/${booking.id}`)}
+        >
+          <Ionicons name="star-outline" size={16} color={Colors.pine[600]} />
+          <Text style={styles.reviewText}>Оставить отзыв</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -194,6 +203,18 @@ const styles = StyleSheet.create({
   priceValue: { fontSize: 14, fontWeight: '700', color: Colors.pine[500], marginTop: 2 },
   cancelBtn: { marginTop: 14, paddingVertical: 10, alignItems: 'center' },
   cancelText: { color: Colors.rose[500], fontSize: 14, fontWeight: '500' },
+  reviewBtn: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.pine[300],
+  },
+  reviewText: { color: Colors.pine[600], fontSize: 14, fontWeight: '600' },
   loader: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 80, gap: 12 },
   emptyText: { color: Colors.slate[500], fontSize: 15 },

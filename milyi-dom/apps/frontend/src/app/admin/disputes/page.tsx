@@ -106,12 +106,12 @@ export default function AdminDisputesPage() {
         <table className="min-w-full divide-y divide-gray-200 text-sm">
           <thead className="bg-gray-50">
             <tr>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Тема</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Заявитель</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Объявление</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Статус</th>
-              <th className="px-4 py-3 text-left font-medium text-gray-600">Дата</th>
-              <th className="px-4 py-3" />
+              <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Тема</th>
+              <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Заявитель</th>
+              <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Объявление</th>
+              <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Статус</th>
+              <th scope="col" className="px-4 py-3 text-left font-medium text-gray-600">Дата</th>
+              <th scope="col" className="px-4 py-3" />
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">

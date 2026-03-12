@@ -13,6 +13,8 @@ interface ListingMeta {
   basePrice?: number | string;
   currency?: string;
   images?: { url: string; isPrimary?: boolean }[];
+  rating?: number;
+  reviewCount?: number;
 }
 
 async function fetchListingMeta(id: string): Promise<ListingMeta | null> {
@@ -76,5 +78,45 @@ export default async function ListingDetailPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  return <ListingDetailClient listingId={id} />;
+  const listing = await fetchListingMeta(id);
+
+  const jsonLd = listing
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'LodgingBusiness',
+        name: listing.title,
+        description: listing.description,
+        image: listing.images?.find((i) => i.isPrimary)?.url ?? listing.images?.[0]?.url,
+        address: {
+          '@type': 'PostalAddress',
+          addressLocality: listing.city,
+          addressCountry: listing.country,
+        },
+        priceRange: listing.basePrice
+          ? `от ${Number(listing.basePrice).toLocaleString('ru-RU')} ${listing.currency ?? '₽'}/ночь`
+          : undefined,
+        ...(listing.rating && listing.reviewCount
+          ? {
+              aggregateRating: {
+                '@type': 'AggregateRating',
+                ratingValue: listing.rating.toFixed(1),
+                reviewCount: listing.reviewCount,
+                bestRating: '5',
+              },
+            }
+          : {}),
+      }
+    : null;
+
+  return (
+    <>
+      {jsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      )}
+      <ListingDetailClient listingId={id} />
+    </>
+  );
 }

@@ -263,25 +263,7 @@ export default function ListingsPage() {
           )}
         </section>
 
-        {/* Pagination (list mode) */}
-        {viewMode === 'list' && results.items.length > 0 && !loading && (
-          <div className="flex justify-center gap-2">
-            <Button
-              variant="ghost"
-              disabled={results.meta.page <= 1}
-              onClick={() => handlePageChange('prev')}
-            >
-              ← Назад
-            </Button>
-            <Button
-              variant="ghost"
-              disabled={results.meta.page >= totalPages}
-              onClick={() => handlePageChange('next')}
-            >
-              Далее →
-            </Button>
-          </div>
-        )}
+
       </div>
     </motion.div>
   );

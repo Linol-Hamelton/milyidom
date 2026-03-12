@@ -1,38 +1,73 @@
-## Милый дом — бэкенд
+п»ї## Backend (Milyi Dom)
 
-NestJS-приложение, обслуживающее REST API и работу с PostgreSQL через Prisma.
+NestJS API service for the Milyi Dom platform.
 
-### Требования
-- Node.js 18+
-- pnpm 8+
-- PostgreSQL 14+ или Docker
+Last synchronized: **2026-03-04**.
 
-### Установка и запуск
+### Tech
+
+- NestJS 11
+- Prisma 6
+- PostgreSQL 16 + PostGIS
+- Redis, Socket.IO, Stripe, Typesense
+
+### Run (workspace)
+
+From `milyi-dom/`:
+
+```bash
+pnpm --filter backend dev
+```
+
+### Run (inside app folder)
+
+From `milyi-dom/apps/backend/`:
+
 ```bash
 pnpm install
-pnpm prisma migrate deploy
-pnpm prisma db seed
 pnpm start:dev
 ```
-API доступно по адресу `http://localhost:4001/api`.
 
-### Переменные окружения
-Создайте `.env` на основе `.env.example`.
-```env
-DATABASE_URL="postgresql://postgres:postgres@localhost:5432/milyi_dom"
-JWT_SECRET="change-me"
-JWT_REFRESH_SECRET="change-me-refresh"
-PORT=4001
-FRONTEND_URL="http://localhost:3000"
-STRIPE_SECRET_KEY=""
-STRIPE_PUBLISHABLE_KEY=""
+API base URL:
+
+- `http://localhost:4001/api`
+
+### Required env
+
+Copy template:
+
+```bash
+cp .env.example .env
 ```
 
-### Полезные команды
-- `pnpm start:dev` — режим разработки.
-- `pnpm build && pnpm start:prod` — production-сборка.
-- `pnpm test`, `pnpm test:e2e` — тесты.
-- `pnpm prisma studio` — интерфейс управления БД.
+Important variables include:
 
-### Статические ресурсы
-Изображения для сидов: `apps/backend/images`. При работе в Docker смонтируйте каталог (см. `docker-compose.yml`).
+- `DATABASE_URL`
+- `DIRECT_DATABASE_URL`
+- `JWT_SECRET`
+- `JWT_REFRESH_SECRET`
+- `ALLOWED_ORIGINS`
+- `STRIPE_SECRET_KEY`
+- `STRIPE_WEBHOOK_SECRET`
+
+### Prisma
+
+```bash
+pnpm prisma:generate
+pnpm prisma:migrate
+pnpm prisma:deploy
+pnpm prisma:seed
+```
+
+### Tests and quality
+
+```bash
+pnpm test
+pnpm lint
+```
+
+### Notes
+
+- Global prefix is `/api`.
+- Health endpoint is `/api/health`.
+- Stripe webhook endpoint is `/api/payments/webhook`.

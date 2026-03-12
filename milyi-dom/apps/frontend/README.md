@@ -1,28 +1,69 @@
-## Милый дом — фронтенд
+п»ї## Frontend (Milyi Dom)
 
-Next.js-приложение (App Router, TypeScript, Tailwind).
+Next.js web app for guest, host, and admin experiences.
 
-### Требования
-- Node.js 18+
-- pnpm 8+
+Last synchronized: **2026-03-04**.
 
-### Установка и запуск
+### Tech
+
+- Next.js 15 (App Router)
+- React 18
+- TailwindCSS
+- Axios + socket.io-client
+- Vitest + Testing Library
+
+### Run (workspace)
+
+From `milyi-dom/`:
+
+```bash
+pnpm --filter frontend dev
+```
+
+### Run (inside app folder)
+
+From `milyi-dom/apps/frontend/`:
+
 ```bash
 pnpm install
 pnpm dev
 ```
-Сайт доступен по адресу `http://localhost:3000`.
 
-### Переменные окружения
-Создайте `.env.local` на основе `.env.example`.
-```env
-NEXT_PUBLIC_API_URL=http://localhost:4001/api
+App URL:
+
+- `http://localhost:3000`
+
+### Environment
+
+Copy template:
+
+```bash
+cp .env.example .env.local
 ```
 
-### Полезные команды
-- `pnpm dev` — режим разработки.
-- `pnpm build && pnpm start` — production-сборка.
-- `pnpm lint`, `pnpm test` — линтер и Vitest.
+Minimum variables:
 
-### Статические ресурсы
-Публичные изображения и фавиконки находятся в `public/`. Добавляйте собственные ресурсы в эту директорию.
+```env
+NEXT_PUBLIC_API_URL=http://localhost:4001/api
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=...
+NEXT_PUBLIC_YANDEX_MAPS_API_KEY=...
+```
+
+Optional websocket override:
+
+```env
+NEXT_PUBLIC_WS_URL=http://localhost:4001
+```
+
+### Quality commands
+
+```bash
+pnpm test
+pnpm lint
+pnpm type-check
+```
+
+### Notes
+
+- Protected pages use `RequireAuth` with optional role filters.
+- Realtime messaging uses websocket origin derived from `NEXT_PUBLIC_API_URL` when `NEXT_PUBLIC_WS_URL` is not set.

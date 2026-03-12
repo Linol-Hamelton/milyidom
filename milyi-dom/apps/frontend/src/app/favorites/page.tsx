@@ -55,7 +55,7 @@ export default function FavoritesPage() {
         return;
       }
       const data = await fetchFavorites();
-      setFavorites(data);
+      setFavorites(data.items);
     } catch (error) {
       const { message } = parseError(error);
       toast.error(message);
