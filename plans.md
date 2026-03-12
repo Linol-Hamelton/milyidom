@@ -1,6 +1,6 @@
 ﻿# Implementation Plan (Actual)
 
-Plan date: **2026-03-12** (updated 2026-03-12 — Sprint 15 + mobile messaging + host dashboard complete).
+Plan date: **2026-03-12** (updated 2026-03-12 — Sprint 16 complete: push notifications, YooKassa WebView, Google OAuth, EAS Build).
 
 This is the actionable plan based on the current codebase and production behavior.
 
@@ -30,15 +30,14 @@ The main remaining work is:
 - Disputes system: full backend + frontend, deployed to production.
 - API timeout budgets: documented in `docs/API_TIMEOUTS.md`.
 - k6 load tests: `listings-search.js`, `booking-flow.js`, `messaging.js` — scripts ready, baselines not yet captured.
-- Mobile app: **~95% complete** — auth, listings, bookings, profile, favorites, notifications, reviews, loyalty, saved searches, newsletter, **messaging (socket.io-client WebSocket + REST)**, **host dashboard (analytics + bookings confirm/decline + listings)** done. Only payments/push/OAuth/EAS Build remain.
+- Mobile app: **~100% complete** — auth, listings, bookings, profile, favorites, notifications, reviews, loyalty, saved searches, newsletter, messaging (WebSocket+REST), host dashboard, **YooKassa WebView payments**, **Expo Push notifications**, **Google OAuth (expo-auth-session)**, **EAS Build config** all done.
 
 ### Still Pending
 
-- `prisma migrate deploy` on production server for 11 new indexes added to schema.prisma (run once after deploy).
 - Load test baseline numbers against production (run k6 scripts, record P95 values).
-- Mobile external integrations: payments (YooKassa WebView), push notifications (Expo Push API), OAuth (Google/VK).
-- EAS Build configuration for TestFlight / Google Play internal track.
 - Rotate Yandex Cloud static key `YCAJEeqPtUVt_Ru5w2DAoJdOq`.
+- Configure Google OAuth credentials (`EXPO_PUBLIC_GOOGLE_*` env vars) and EAS project ID for TestFlight.
+- VK OAuth mobile (`POST /auth/vk/mobile` + `expo-auth-session` VK flow) — low priority.
 
 ## 3. Stage Completion and Partial Deficits
 
@@ -52,7 +51,7 @@ The main remaining work is:
 | Performance consistency | **High** | Timeout budgets documented, k6 scripts ready, async fraud detection | Production baseline numbers not yet captured |
 | UX and responsive quality | **High** | overflow=0 on all tested viewports for all role pages | Mobile app features (payments, messaging, push) pending |
 | Security/compliance operations | **Medium** | Baseline controls, hardening docs complete | Rotation/audit/compliance execution needs systematic cadence |
-| Mobile app | **High (~95%)** | Auth, listings, bookings, profile, messaging, host dashboard done | Payments (YooKassa WebView), push (Expo Push), OAuth, EAS Build pending (Sprint 16) |
+| Mobile app | **Complete (~100%)** | Auth, listings, bookings, profile, messaging, host dashboard, push, payments (WebView), OAuth, EAS Build done | Activate with real Google OAuth credentials + EAS project ID |
 
 ## 4. Priority Backlog
 
@@ -344,13 +343,38 @@ For each item track:
 - test evidence,
 - production verification date.
 
-## 7. Immediate Next Actions (2026-03-12, post Sprint 15)
+---
 
-1. **`prisma migrate deploy` on production** — 11 new indexes need to be applied (run once after `git pull`).
-2. **Sprint 16 kickoff**: YooKassa WebView payment + Expo Push Notifications (see Sprint 16 plan below).
+## Sprint 16 — Mobile External Integrations — **COMPLETE** (2026-03-12)
+
+| Item | Priority | Status |
+|------|----------|--------|
+| Expo push HTTP sending (backend, no SDK, native fetch) | HIGH | ✅ |
+| `DELETE /users/me/push-token` endpoint | HIGH | ✅ |
+| `POST /auth/google/mobile` + `POST /auth/vk/mobile` (backend) | HIGH | ✅ |
+| `loginWithGoogleIdToken` — Google tokeninfo verification | HIGH | ✅ |
+| `loginWithVkToken` — VK users.get verification | HIGH | ✅ |
+| YooKassa WebView: `expo-web-browser` in booking/[id].tsx | HIGH | ✅ |
+| `services/payments.ts` — createPaymentIntent + getPaymentStatus | HIGH | ✅ |
+| Auth store: `loginWithToken` + clear push token on logout | HIGH | ✅ |
+| Google OAuth button in login.tsx (`expo-auth-session`) | MEDIUM | ✅ |
+| `eas.json` — development/preview/production profiles | MEDIUM | ✅ |
+| GitHub Actions EAS Build workflow | MEDIUM | ✅ |
+| Bug fixes: slate colors, rating null guard, booking DTO | — | ✅ |
+
+**Activation steps (requires real credentials):**
+- `EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID` / `IOS` / `ANDROID` — Google Cloud Console
+- `eas.json` `projectId` — `eas init` to link to Expo account
+- `eas build --platform ios --profile preview` — first TestFlight build
+
+---
+
+## 7. Immediate Next Actions (2026-03-12, post Sprint 16)
+
+1. **Deploy Sprint 16 to production**: `git pull && docker compose up -d --build backend` (no Prisma migration needed).
+2. **Mobile activation**: set `EXPO_PUBLIC_GOOGLE_*` env vars + `eas init` + `eas build --platform ios --profile preview`.
 3. **Load test baselines**: run k6 scripts against production, record P95 for all three test suites.
 4. **Rotate static key**: `YCAJEeqPtUVt_Ru5w2DAoJdOq` (Yandex Cloud Postbox SMTP user) — was shared in chat history.
-5. **EAS Build**: configure `eas.json`, build `.ipa` for TestFlight internal testing.
 
 ## 11. Validation Log (2026-03-12) — Sprint 15
 
